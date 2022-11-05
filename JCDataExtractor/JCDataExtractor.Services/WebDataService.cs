@@ -287,17 +287,64 @@ namespace JCDataExtractor.Services
 
                         //check how many race on the page
                         //#innerContent > div.Draw.commContent > div.racingNum.top_races.js_racecard_rt_num > table > tbody > tr > td <- count td
+                        var jsRaceCount = @"() => {
+                        const selectors = Array.from(document.querySelectorAll('#innerContent > div.Draw.commContent > div.racingNum.top_races.js_racecard_rt_num > table > tbody > tr > td '));
+                        return selectors.length;}";
 
+                        var raceCount = await page.EvaluateFunctionAsync<int>(jsRaceCount);
+                        raceCount--;
 
-                        //map html table data to list of object via js querySelector here
-                        var jsShortTable = @"() => {
-                        const selectors = Array.from(document.querySelectorAll('#racecardlist > tbody > tr > td > table > tbody > tr '));
-                        return selectors.map( (tr) => { 
-                            const tds = Array.from(tr.querySelectorAll('td'));
-                            return { houseNo: tds[0].innerHTML, last6Runs: tds[1].innerHTML, Colour: tds[2].querySelector('img').src }});
-                        }";
+                        if (raceCount != 0)
+                        {
+                            for (int i = 1; i <= raceCount; i++)
+                            {
+                                var draw = new DrawStats();
+                                draw.raceNo = i;
+                                draw.courseInfo = await page.EvaluateFunctionAsync<string>(@"() => { const selector = document.querySelector('#race" + i + " > td'); return selector.innerHTML; }");
+                                draw.courseInfo.Replace("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", string.Empty); //remove html space tag
+                                draw.DrawDetails = new List<DrawDetail>();
 
-                        var shortResults = await page.EvaluateFunctionAsync<RaceCardEntry[]>(jsShortTable);
+                                var childNodeNo = 3 + (i * 2);
+                                //map html table data to list of DrawDetails via js querySelector here
+                                var jsDrawDetails = @"() => {
+                                const selectors = Array.from(document.querySelectorAll('#innerContent > div.Draw.commContent > div:nth-child(" + childNodeNo + @") > table > tbody > tr '));
+                                return selectors.map( (tr) => { 
+                                    const tds = Array.from(tr.querySelectorAll('td'));
+                                    return { draw:      tds[0].innerHTML, 
+                                             runners:   tds[1].innerHTML, 
+                                             win:       tds[2].innerHTML,
+                                             second:    tds[3].innerHTML,
+                                             third:     tds[4].innerHTML,
+                                             forth:     tds[5].innerHTML,
+                                             percentW:  tds[6].innerHTML,
+                                             percentQ:  tds[7].innerHTML,
+                                             percentP:  tds[8].innerHTML,
+                                             percentF:  tds[9].innerHTML,
+                                            }
+                                        });
+                                }";
+
+                                var drawDetails = await page.EvaluateFunctionAsync<DrawDetail[]>(jsDrawDetails);
+                                if (drawDetails != null && drawDetails.Length != 0) {
+                                    draw.DrawDetails.AddRange(drawDetails.ToList());
+                                }
+
+                                //Hot percents
+                                var jsHotPercents = @"() => {
+                                const selectors = Array.from(document.querySelectorAll('#innerContent > div.Draw.commContent > div:nth-child(" + childNodeNo + @") > table > tfoot > tr > td:nth-child(2) > span '));
+                                return selectors.map( (span) => span.innerHTML);
+                                }";
+
+                                var hotPercents = await page.EvaluateFunctionAsync<string[]>(jsHotPercents);
+
+                                draw.hotPercentW = hotPercents[0];
+                                draw.hotPercentP = hotPercents[1];
+                                draw.hotPercentF = hotPercents[2];
+
+                                //Add drawStat object to the result
+                                result.Add(draw);
+                            }
+                        }
 
                         return result;
                     }
@@ -349,7 +396,7 @@ namespace JCDataExtractor.Services
          */
 
         /*
-            https://racing.hkjc.com/racing/information/Chinese/Trainers/TrainerRanking.aspx?Season=Current&View=Numbers&Racecourse=ALL
+            4. https://racing.hkjc.com/racing/information/Chinese/Trainers/TrainerRanking.aspx?Season=Current&View=Numbers&Racecourse=ALL
 
             https://racing.hkjc.com/racing/information/Chinese/Trainers/TrainerRanking.aspx?Season=Previous&View=Numbers&Racecourse=ALL
 
@@ -357,7 +404,7 @@ namespace JCDataExtractor.Services
          */
 
         /*
-            https://racing.hkjc.com/racing/information/Chinese/Horse/Horse.aspx?HorseId=HK_2021_G232&Option=1
+            5. https://racing.hkjc.com/racing/information/Chinese/Horse/Horse.aspx?HorseId=HK_2021_G232&Option=1
             呢條係馬匹既，檔中既變數就係馬匹編號，HK_2021_G232
             HK_2021係隻馬黎港日期，G232係馬匹烙號
             係排表表馬匹名既超連結入面可以提取到呢個馬匹編號
@@ -367,14 +414,14 @@ namespace JCDataExtractor.Services
          */
 
         /*
-            https://racing.hkjc.com/racing/information/Chinese/Jockey/JockeyPastRec.aspx?JockeyId=BV&Season=Current&PageNum=1
+            6. https://racing.hkjc.com/racing/information/Chinese/Jockey/JockeyPastRec.aspx?JockeyId=BV&Season=Current&PageNum=1
             呢個係騎師既，當中有變數JockeyId、Curent、PageNum
             JockeyId同馬匹一樣，可以係排位表個超連結上面提取到
             最麻煩就係PageNum，1代表第一頁，如果得2頁既話，你輸入3佢都會比繼續比第二頁你，所以我個程式要檢查有無「下一頁」呢個字去判斷有無下一頁。    
          */
 
         /*
-            https://racing.hkjc.com/racing/information/Chinese/Trainers/TrainerPastRec.aspx?TrainerId=SJJ&Season=Current&PageNum=1
+            7. https://racing.hkjc.com/racing/information/Chinese/Trainers/TrainerPastRec.aspx?TrainerId=SJJ&Season=Current&PageNum=1
             呢個係練馬師既，原理同騎師既一樣
          */
     }
