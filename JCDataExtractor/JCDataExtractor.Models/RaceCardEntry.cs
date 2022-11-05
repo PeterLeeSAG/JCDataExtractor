@@ -1,6 +1,6 @@
 ﻿namespace JCDataExtractor.Models
 {
-    public class RacingCardEntry
+    public class RaceCardEntry
     {
         /*
         Horse No.
@@ -43,7 +43,7 @@
         public string last6Runs { get; set; }
 
         /// <summary>
-        /// 綵衣
+        /// 綵衣, Link of image
         /// </summary>
         public string colour { get; set; }
 
@@ -55,7 +55,7 @@
         /// <summary>
         /// 烙號
         /// </summary>
-        public string BrandNo { get; set; }
+        public string brandNo { get; set; }
 
         /// <summary>
         /// 負磅

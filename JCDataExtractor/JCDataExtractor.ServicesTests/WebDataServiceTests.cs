@@ -12,10 +12,10 @@ namespace JCDataExtractor.Services.Tests
     public class WebDataServiceTests
     {
         [TestMethod()]
-        public async Task GetRacingRardEntriesTest()
+        public async Task GetRaceCardEntriesTest()
         {
-            var results = await WebDataService.GetRacingRardEntries(DateTime.Parse("2022/11/06"), "st", 1);
-            Assert.Fail();
+            var results = await WebDataService.GetRaceCardEntries(DateTime.Parse("2022/11/06"), "st", 1);
+            Assert.AreEqual(true, results.Count!=0?true:false);
         }
     }
 }

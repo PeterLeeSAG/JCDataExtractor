@@ -79,7 +79,7 @@ namespace JCDataExtractor.Services
                             <td width="40px" style="width: 40px; display: none;">Import Cat.</td>
                         </tr>
 
-            row tr: f_tac f_fs13
+            row html: f_tac f_fs13
                         <tr class="f_tac f_fs13">
                             <td style="width: 40px;">1</td>
                             <td style="width: 80px;">14/11/12/11/8/14</td>
@@ -112,11 +112,11 @@ namespace JCDataExtractor.Services
                         </tr>
          */
 
-        public static async Task<List<RacingCardEntry>> GetRacingRardEntries(DateTime raceDate, string raceCourse, int raceNo)
+        public static async Task<List<RaceCardEntry>> GetRaceCardEntries(DateTime raceDate, string raceCourse, int raceNo)
         {
             //https://racing.hkjc.com/racing/information/chinese/Racing/RaceCard.aspx?RaceDate=2022/11/06&Racecourse=ST&RaceNo=1
             string url = string.Format(@"https://racing.hkjc.com/racing/information/chinese/Racing/RaceCard.aspx?RaceDate={0}&Racecourse={1}&RaceNo={2}", raceDate.ToString("yyyy/MM/dd"), raceCourse, raceNo.ToString());
-            var result = new List<RacingCardEntry>();
+            var result = new List<RaceCardEntry>();
 
             try
             {
@@ -129,22 +129,18 @@ namespace JCDataExtractor.Services
                 await browserFetcher.DownloadAsync(BrowserFetcher.DefaultChromiumRevision);
                 using (var browser = await Puppeteer.LaunchAsync(new LaunchOptions()
                 {
-                    Headless = true, //偵測時可設定false觀察網頁顯示結果(註：非Headless時不能匯出PDF)
+                    Headless = true,
                     ExecutablePath = browserFetcher.RevisionInfo(BrowserFetcher.DefaultChromiumRevision).ExecutablePath
                 }))
                 {
                     using (var page = await browser.NewPageAsync())
                     {
                         await page.GoToAsync(url);
-                        //透過SetViewport控制視窗大小決定抓圖尺寸
                         await page.SetViewportAsync(new ViewPortOptions
                         {
                             Width = 1024,
                             Height = 768
                         });
-
-                        //summary table:
-                        //await page.WaitForSelectorAsync(".card_body");
 
                         //#racecardlist > tbody > tr > td > table > tbody > tr:nth-child(1)
                         //#main > div > div.card > div.card_body > table > tbody > tr:nth-child(1) > td:nth-child(5) > span
@@ -152,14 +148,47 @@ namespace JCDataExtractor.Services
 
                         Thread.Sleep(1000);
 
+                        //map html table data to list of object via js querySelector here
                         var jsShortTable = @"() => {
                         const selectors = Array.from(document.querySelectorAll('#racecardlist > tbody > tr > td > table > tbody > tr '));
                         return selectors.map( (tr) => { 
                             const tds = Array.from(tr.querySelectorAll('td'));
-                            return { houseNo: tds[0].innerHTML, last6Runs: tds[1].innerHTML, Colour: tds[2].querySelector('img').src }});
+                            return {    houseNo:            tds[0].innerHTML, 
+                                        last6Runs:          tds[1].innerHTML, 
+                                        colour:             tds[2].querySelector('img').src,
+                                        horseName:          tds[3].querySelector('a').innerHTML,
+                                        brandNo:            tds[4].innerHTML,
+                                        takeWeight:         tds[5].innerHTML,
+                                        jockey:             tds[6].querySelector('a').innerHTML,
+                                        probableOverWeight: tds[7].innerHTML,
+                                        draw:               tds[8].innerHTML,
+                                        tranier:            tds[9].querySelector('a').innerHTML,
+                                        intlRating:         tds[10].innerHTML,
+                                        rating:             tds[11].innerHTML,
+                                        ratingChange:       tds[12].innerHTML,
+                                        horseWeightDeclare: tds[13].innerHTML,
+                                        horseWeightDiff:    tds[14].innerHTML,
+                                        bestTime:           tds[15].innerHTML,
+                                        age:                tds[16].innerHTML,
+                                        handicapWeight:     tds[17].innerHTML,
+                                        sex:                tds[18].innerHTML,
+                                        seasonStakes:       tds[19].innerHTML,
+                                        priority:           tds[20].innerHTML,
+                                        gear:               tds[21].innerHTML,
+                                        owner:              tds[22].innerHTML,
+                                        sire:               tds[23].innerHTML,
+                                        dam:                tds[24].innerHTML,
+                                        importCat:          tds[25].innerHTML
+                                }
+                            });
                         }";
 
-                        var shortResults = await page.EvaluateFunctionAsync<RacingCardEntry[]>(jsShortTable);
+                        var raceCardResults = await page.EvaluateFunctionAsync<RaceCardEntry[]>(jsShortTable);
+
+                        if (raceCardResults != null && raceCardResults.Length != 0)
+                        {
+                            result = raceCardResults.ToList();
+                        }
 
                         return result;
                     }
@@ -173,5 +202,180 @@ namespace JCDataExtractor.Services
 
             return result;
         }
+
+        /*
+            2. https://racing.hkjc.com/racing/information/Chinese/racing/Draw.aspx
+
+            呢一條係當日賽事所有場次既檔位統計，基本上係一頁Show晒咁多場，所以條Link 無變數。
+            table: #innerContent > div.Draw.commContent > div:nth-child(5)
+            Info: #innerContent > div.Draw.commContent > table > tbody > tr > td.f_fs13.font_wb <- 06/11/2022 沙田
+            table header: #race1 
+                          #race2 > td <- 第 2 場 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1200米 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 草地 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; "C+3" 賽道
+
+                #innerContent > div.Draw.commContent > div.racingNum.top_races.js_racecard_rt_num > table > tbody > tr > td:nth-child(11)  <- count how many race here
+                
+                #innerContent > div.Draw.commContent > div:nth-child(5) <- table 1
+                #innerContent > div.Draw.commContent > div:nth-child(7) <- table 2
+                #innerContent > div.Draw.commContent > div:nth-child(9) <- table 3 ...
+                
+            row:#innerContent > div.Draw.commContent > div:nth-child(5) > table > tbody > tr:nth-child(1)
+                #innerContent > div.Draw.commContent > div:nth-child(5) > table > tbody > tr:nth-child(1) > td.f_pr.scale > span.win > img .width
+                #innerContent > div.Draw.commContent > div:nth-child(5) > table > tbody > tr:nth-child(1) > td.f_pr.scale > span.placed > img .width (100% = 360px)
+                
+                #innerContent > div.Draw.commContent > div:nth-child(23) > table > tfoot > tr > td:nth-child(2) > span:nth-child(1) <- hot, total 3 items
+
+            row html:
+                    檔位
+                    出賽次數
+                    冠
+                    亞
+                    季
+                    殿
+                    勝出率%
+                    入Q率%
+                    上名率%
+                    前4名率%
+
+                    Draw
+                    Runners
+                    Win
+                    2nd
+                    3rd
+                    4th
+                    W%
+                    Q%
+                    P%
+                    F%
+                            
+         */
+
+        /// <summary>
+        /// Get the list of Draw Statistics for the coming race
+        /// </summary>
+        /// <returns></returns>
+        public static async Task<List<DrawStats>> GetDrawStatsList()
+        {
+            //https://racing.hkjc.com/racing/information/Chinese/racing/Draw.aspx
+            string url = string.Format(@"https://racing.hkjc.com/racing/information/Chinese/racing/Draw.aspx");
+            var result = new List<DrawStats>();
+
+            try
+            {
+                var path = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+                var browserFetcher = new BrowserFetcher(new BrowserFetcherOptions
+                {
+                    Path = path + @"\.local -chromium"
+                });
+
+                await browserFetcher.DownloadAsync(BrowserFetcher.DefaultChromiumRevision);
+                using (var browser = await Puppeteer.LaunchAsync(new LaunchOptions()
+                {
+                    Headless = true,
+                    ExecutablePath = browserFetcher.RevisionInfo(BrowserFetcher.DefaultChromiumRevision).ExecutablePath
+                }))
+                {
+                    using (var page = await browser.NewPageAsync())
+                    {
+                        await page.GoToAsync(url);
+                        await page.SetViewportAsync(new ViewPortOptions
+                        {
+                            Width = 1024,
+                            Height = 768
+                        });
+
+                        Thread.Sleep(1000);
+
+                        //check how many race on the page
+                        //#innerContent > div.Draw.commContent > div.racingNum.top_races.js_racecard_rt_num > table > tbody > tr > td <- count td
+
+
+                        //map html table data to list of object via js querySelector here
+                        var jsShortTable = @"() => {
+                        const selectors = Array.from(document.querySelectorAll('#racecardlist > tbody > tr > td > table > tbody > tr '));
+                        return selectors.map( (tr) => { 
+                            const tds = Array.from(tr.querySelectorAll('td'));
+                            return { houseNo: tds[0].innerHTML, last6Runs: tds[1].innerHTML, Colour: tds[2].querySelector('img').src }});
+                        }";
+
+                        var shortResults = await page.EvaluateFunctionAsync<RaceCardEntry[]>(jsShortTable);
+
+                        return result;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+                throw;
+            }
+
+            return result;
+        }
+
+        /*
+         3. https://racing.hkjc.com/racing/information/Chinese/Jockey/JockeyRanking.aspx?Season=Current&View=Numbers&Racecourse=ALL
+
+            https://racing.hkjc.com/racing/information/Chinese/Jockey/JockeyRanking.aspx?Season=Previous&View=Numbers&Racecourse=ALL
+
+            呢一條係騎師統計表，當中有變數，Current代表今季資料，Previous代表上季
+
+                <td width="160px">騎師</td>
+                <td width="70px">冠</td>
+                <td width="70px">亞</td>
+                <td width="70px">季</td>
+                <td width="70px">殿</td>
+                <td width="70px">第五</td>
+                <td width="120px">總出賽次數</td>
+                <td>所贏獎金</td>
+
+                row: #innerContent > div.commContent > div.Ranking > div:nth-child(3) > table > tbody:nth-child(2) > tr:nth-child(1) <-first
+                     #innerContent > div.commContent > div.Ranking > div:nth-child(3) > table > tbody:nth-child(2) > tr:nth-child(25) <-last
+
+                row html:
+                    <tr>
+                        <td class="f_fs14 f_tal">
+                            <a href="/racing/information/Chinese/Jockey/JockeyPastRec.aspx?JockeyId=PZ&amp;Season=Current">
+                                潘頓
+                            </a>
+                        </td>
+                        <td>32</td>
+                        <td>18</td>
+                        <td>9</td>
+                        <td>17</td>
+                        <td>10</td>
+                        <td>133</td>
+                        <td class="f_tar">$42,497,125</td>
+                    </tr>
+         */
+
+        /*
+            https://racing.hkjc.com/racing/information/Chinese/Trainers/TrainerRanking.aspx?Season=Current&View=Numbers&Racecourse=ALL
+
+            https://racing.hkjc.com/racing/information/Chinese/Trainers/TrainerRanking.aspx?Season=Previous&View=Numbers&Racecourse=ALL
+
+            呢一條係練馬師統計表，同騎師統計表一樣，當中有一個變數，Current代表今季資料，Previous代表上季
+         */
+
+        /*
+            https://racing.hkjc.com/racing/information/Chinese/Horse/Horse.aspx?HorseId=HK_2021_G232&Option=1
+            呢條係馬匹既，檔中既變數就係馬匹編號，HK_2021_G232
+            HK_2021係隻馬黎港日期，G232係馬匹烙號
+            係排表表馬匹名既超連結入面可以提取到呢個馬匹編號
+
+            https://racing.hkjc.com/racing/information/chinese/Horse/SelectHorsebyChar.aspx?ordertype=2
+            house list, ordertype = 2,3,4
+         */
+
+        /*
+            https://racing.hkjc.com/racing/information/Chinese/Jockey/JockeyPastRec.aspx?JockeyId=BV&Season=Current&PageNum=1
+            呢個係騎師既，當中有變數JockeyId、Curent、PageNum
+            JockeyId同馬匹一樣，可以係排位表個超連結上面提取到
+            最麻煩就係PageNum，1代表第一頁，如果得2頁既話，你輸入3佢都會比繼續比第二頁你，所以我個程式要檢查有無「下一頁」呢個字去判斷有無下一頁。    
+         */
+
+        /*
+            https://racing.hkjc.com/racing/information/Chinese/Trainers/TrainerPastRec.aspx?TrainerId=SJJ&Season=Current&PageNum=1
+            呢個係練馬師既，原理同騎師既一樣
+         */
     }
 }
