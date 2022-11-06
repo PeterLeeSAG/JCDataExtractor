@@ -9,7 +9,6 @@ namespace JCDataExtractor.Services
         public WebDataService()
         {
         }
-
         /*
             1. https://racing.hkjc.com/racing/information/chinese/Racing/RaceCard.aspx?RaceDate=2022/11/06&Racecourse=ST&RaceNo=1
 
@@ -111,7 +110,6 @@ namespace JCDataExtractor.Services
                             <td style="width: 40px; display: none;">PP</td>
                         </tr>
          */
-
         public static async Task<List<RaceCardEntry>> GetRaceCardEntries(DateTime raceDate, string raceCourse, int raceNo)
         {
             //https://racing.hkjc.com/racing/information/chinese/Racing/RaceCard.aspx?RaceDate=2022/11/06&Racecourse=ST&RaceNo=1
@@ -298,12 +296,14 @@ namespace JCDataExtractor.Services
                         {
                             for (int i = 1; i <= raceCount; i++)
                             {
+                                Thread.Sleep(500);
+
                                 var draw = new DrawStats();
                                 draw.raceNo = i;
                                 draw.courseInfo = await page.EvaluateFunctionAsync<string>(@"() => { const selector = document.querySelector('#race" + i + " > td'); return selector.innerHTML; }");
-                                draw.courseInfo.Replace("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", string.Empty); //remove html space tag
+                                draw.courseInfo = draw.courseInfo.Replace("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", string.Empty); //remove html space tag
                                 draw.DrawDetails = new List<DrawDetail>();
-
+                                
                                 var childNodeNo = 3 + (i * 2);
                                 //map html table data to list of DrawDetails via js querySelector here
                                 var jsDrawDetails = @"() => {
@@ -319,8 +319,8 @@ namespace JCDataExtractor.Services
                                              percentW:  tds[6].innerHTML,
                                              percentQ:  tds[7].innerHTML,
                                              percentP:  tds[8].innerHTML,
-                                             percentF:  tds[9].innerHTML,
-                                            }
+                                             percentF:  tds[9].innerHTML
+                                            };
                                         });
                                 }";
 
@@ -394,6 +394,72 @@ namespace JCDataExtractor.Services
                         <td class="f_tar">$42,497,125</td>
                     </tr>
          */
+        public static async Task<List<JockeyRaceRow>> GetJockeyRankingTable(string seasonType)
+        {
+            //https://racing.hkjc.com/racing/information/Chinese/Jockey/JockeyRanking.aspx?Season=Current&View=Numbers&Racecourse=ALL
+            string url = string.Format(@"https://racing.hkjc.com/racing/information/Chinese/Jockey/JockeyRanking.aspx?Season=" + seasonType + @"&View=Numbers&Racecourse=ALL");
+            var result = new List<JockeyRaceRow>();
+
+            try
+            {
+                var path = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+                var browserFetcher = new BrowserFetcher(new BrowserFetcherOptions
+                {
+                    Path = path + @"\.local -chromium"
+                });
+
+                await browserFetcher.DownloadAsync(BrowserFetcher.DefaultChromiumRevision);
+                using (var browser = await Puppeteer.LaunchAsync(new LaunchOptions()
+                {
+                    Headless = true,
+                    ExecutablePath = browserFetcher.RevisionInfo(BrowserFetcher.DefaultChromiumRevision).ExecutablePath
+                }))
+                {
+                    using (var page = await browser.NewPageAsync())
+                    {
+                        await page.GoToAsync(url);
+                        await page.SetViewportAsync(new ViewPortOptions
+                        {
+                            Width = 1024,
+                            Height = 768
+                        });
+
+                        Thread.Sleep(1000);
+
+                        //check how many race on the page
+                        //#innerContent > div.Draw.commContent > div.racingNum.top_races.js_racecard_rt_num > table > tbody > tr > td <- count td
+                        var jsJockeyRank = @"() => {
+                        const selectors = Array.from(document.querySelectorAll('#innerContent > div.commContent > div.Ranking > div:nth-child(3) > table > tbody:nth-child(2) > tr '));
+                        return selectors.map( (tr) => { 
+                                    const tds = Array.from(tr.querySelectorAll('td'));
+                                    return { 
+                                             jockeyName: tds[0].querySelector('a').innerHTML,
+                                             jockeyId:   tds[0].querySelector('a').href.split('=')[1].split('&')[0],
+                                             count1st:   tds[1].innerHTML,
+                                             count2nd:   tds[2].innerHTML,
+                                             count3rd:   tds[3].innerHTML,
+                                             count4th:   tds[4].innerHTML,
+                                             count5th:   tds[5].innerHTML,
+                                             totalRide:  tds[6].innerHTML,
+                                             stakesWon:  tds[7].innerHTML.replace('$','').replace(',','')
+                                            }
+                                        });
+                                }";
+
+                        var JockeyRaceRows = await page.EvaluateFunctionAsync<JockeyRaceRow[]>(jsJockeyRank);
+                        result = JockeyRaceRows.ToList();
+                        return result;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+                throw;
+            }
+
+            return result;
+        }
 
         /*
             4. https://racing.hkjc.com/racing/information/Chinese/Trainers/TrainerRanking.aspx?Season=Current&View=Numbers&Racecourse=ALL
@@ -419,6 +485,84 @@ namespace JCDataExtractor.Services
             JockeyId同馬匹一樣，可以係排位表個超連結上面提取到
             最麻煩就係PageNum，1代表第一頁，如果得2頁既話，你輸入3佢都會比繼續比第二頁你，所以我個程式要檢查有無「下一頁」呢個字去判斷有無下一頁。    
          */
+
+        //#innerContent > div.jockeyPastRec.commContent > div.ridingRec > table > tbody > tr:nth-child(2) > td:nth-child(1) <- count if td == 13
+        //#innerContent > div.jockeyPastRec.commContent > div.ridingRec > table > tbody > tr:nth-child(3)        
+        public static async Task<List<RidingRecord>> GetRidingRecords(string jockeyID, string seasonType, int pageID = 1)
+        {
+            //https://racing.hkjc.com/racing/information/Chinese/Jockey/JockeyPastRec.aspx?JockeyId=BV&Season=Current&PageNum=1
+            string url = string.Format(@"https://racing.hkjc.com/racing/information/Chinese/Jockey/JockeyPastRec.aspx?JockeyId={0}&Season={1}&PageNum={2}"
+                , jockeyID
+                , seasonType
+                , pageID
+                );
+            var result = new List<RidingRecord>();
+
+            try
+            {
+                var path = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+                var browserFetcher = new BrowserFetcher(new BrowserFetcherOptions
+                {
+                    Path = path + @"\.local -chromium"
+                });
+
+                await browserFetcher.DownloadAsync(BrowserFetcher.DefaultChromiumRevision);
+                using (var browser = await Puppeteer.LaunchAsync(new LaunchOptions()
+                {
+                    Headless = true,
+                    ExecutablePath = browserFetcher.RevisionInfo(BrowserFetcher.DefaultChromiumRevision).ExecutablePath
+                }))
+                {
+                    using (var page = await browser.NewPageAsync())
+                    {
+                        await page.GoToAsync(url);
+                        await page.SetViewportAsync(new ViewPortOptions
+                        {
+                            Width = 1024,
+                            Height = 768
+                        });
+
+                        Thread.Sleep(1000);
+                        //#innerContent > div.jockeyPastRec.commContent > div.ridingRec > table > tbody > tr:nth-child(1)
+                        var jsRidingRecords = @"() => {
+                        const selectors = Array.from(document.querySelectorAll('#innerContent > div.jockeyPastRec.commContent > div.ridingRec > table > tbody > tr '));
+                        return selectors.map( (tr) => { 
+                                    const tds = Array.from(tr.querySelectorAll('td'));
+                                    if (tds.length == 13) {
+                                        return { 
+                                             index        :tds[0].querySelector('a').innerHTML,
+                                             raceURL      :tds[0].querySelector('a').href,
+                                             placing      :tds[1].innerHTML,
+                                             trackCourse  :tds[2].innerHTML,
+                                             distance     :tds[3].innerHTML,
+                                             raceClass    :tds[4].innerHTML,
+                                             going        :tds[5].innerHTML,
+                                             house        :tds[6].innerHTML,
+                                             draw         :tds[7].innerHTML,
+                                             rtg          :tds[8].innerHTML,
+                                             trainer      :tds[9].innerHTML,
+                                             gear         :tds[10].innerHTML,
+                                             bodyWeight   :tds[11].innerHTML,
+                                             actualWeight :tds[12].innerHTML
+                                            }
+                                        }
+                                    });
+                                }";
+
+                        var ridingRecords = await page.EvaluateFunctionAsync<RidingRecord[]>(jsRidingRecords);
+                        result = ridingRecords.Where(r => r != null).ToList();
+                        return result;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+                throw;
+            }
+
+            return result;
+        }
 
         /*
             7. https://racing.hkjc.com/racing/information/Chinese/Trainers/TrainerPastRec.aspx?TrainerId=SJJ&Season=Current&PageNum=1
