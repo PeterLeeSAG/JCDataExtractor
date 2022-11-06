@@ -35,7 +35,7 @@
         /// <summary>
         /// 馬匹編號
         /// </summary>
-        public int houseNo { get; set; }
+        public int horseNo { get; set; }
 
         /// <summary>
         /// 6次近績

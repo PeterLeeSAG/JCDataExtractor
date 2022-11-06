@@ -53,7 +53,7 @@ namespace JCDataExtractor.Services
                         const selectors = Array.from(document.querySelectorAll('#racecardlist > tbody > tr > td > table > tbody > tr '));
                         return selectors.map( (tr) => { 
                             const tds = Array.from(tr.querySelectorAll('td'));
-                            return {    houseNo:            tds[0].innerHTML, 
+                            return {    horseNo:            tds[0].innerHTML, 
                                         last6Runs:          tds[1].innerHTML, 
                                         colour:             tds[2].querySelector('img').src,
                                         horseName:          tds[3].querySelector('a').innerHTML,
@@ -369,7 +369,7 @@ namespace JCDataExtractor.Services
             係排表表馬匹名既超連結入面可以提取到呢個馬匹編號
 
             https://racing.hkjc.com/racing/information/chinese/Horse/SelectHorsebyChar.aspx?ordertype=2
-            house list, ordertype = 2,3,4
+            horse list, ordertype = 2,3,4
          */
         /*
          * table 1- > tr -> 3rd td: #innerContent > div.commContent > div:nth-child(1) > table.horseProfile > tbody > tr > td:nth-child(2) > table > tr > td[2]

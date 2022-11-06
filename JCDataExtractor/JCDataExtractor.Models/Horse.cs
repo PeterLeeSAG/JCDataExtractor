@@ -5,8 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 namespace JCDataExtractor.Models
-{
-    
+{    
     public class Horse
     {
         /*
