@@ -297,32 +297,10 @@ namespace JCDataExtractor.Services
 
             呢一條係練馬師統計表，同騎師統計表一樣，當中有一個變數，Current代表今季資料，Previous代表上季
          */
-
-        /*
-            5. https://racing.hkjc.com/racing/information/Chinese/Horse/Horse.aspx?HorseId=HK_2021_G232&Option=1
-            呢條係馬匹既，檔中既變數就係馬匹編號，HK_2021_G232
-            HK_2021係隻馬黎港日期，G232係馬匹烙號
-            係排表表馬匹名既超連結入面可以提取到呢個馬匹編號
-
-            https://racing.hkjc.com/racing/information/chinese/Horse/SelectHorsebyChar.aspx?ordertype=2
-            house list, ordertype = 2,3,4
-         */
-
-        /*
-            6. https://racing.hkjc.com/racing/information/Chinese/Jockey/JockeyPastRec.aspx?JockeyId=BV&Season=Current&PageNum=1
-            呢個係騎師既，當中有變數JockeyId、Curent、PageNum
-            JockeyId同馬匹一樣，可以係排位表個超連結上面提取到
-            最麻煩就係PageNum，1代表第一頁，如果得2頁既話，你輸入3佢都會比繼續比第二頁你，所以我個程式要檢查有無「下一頁」呢個字去判斷有無下一頁。    
-         */
-        public static async Task<List<RidingRecord>> GetRidingRecords(string jockeyID, string seasonType, int pageID = 1)
+        public static async Task<List<TrainerRaceRow>> GetTrainerRankingTable(string seasonType)
         {
-            //https://racing.hkjc.com/racing/information/Chinese/Jockey/JockeyPastRec.aspx?JockeyId=BV&Season=Current&PageNum=1
-            string url = string.Format(@"https://racing.hkjc.com/racing/information/Chinese/Jockey/JockeyPastRec.aspx?JockeyId={0}&Season={1}&PageNum={2}"
-                , jockeyID
-                , seasonType
-                , pageID
-                );
-            var result = new List<RidingRecord>();
+            string url = string.Format(@"https://racing.hkjc.com/racing/information/Chinese/Trainers/TrainerRanking.aspx?Season=" + seasonType + @"&View=Numbers&Racecourse=ALL");
+            var result = new List<TrainerRaceRow>();
 
             try
             {
@@ -350,6 +328,115 @@ namespace JCDataExtractor.Services
 
                         Thread.Sleep(1000);
 
+                        //check how many race on the page                        
+                        var jsTrainerRank = @"() => {
+                        const selectors = Array.from(document.querySelectorAll('#innerContent > div.commContent > div.Ranking > div:nth-child(3) > table > tbody:nth-child(2) > tr '));
+                        return selectors.map( (tr) => { 
+                                    const tds = Array.from(tr.querySelectorAll('td'));
+                                    return { 
+                                             trainerName: tds[0].querySelector('a').innerHTML,
+                                             trainerId:   tds[0].querySelector('a').href.split('=')[1].split('&')[0],
+                                             count1st:    tds[1].innerHTML,
+                                             count2nd:    tds[2].innerHTML,
+                                             count3rd:    tds[3].innerHTML,
+                                             count4th:    tds[4].innerHTML,
+                                             count5th:    tds[5].innerHTML,
+                                             totalRun:    tds[6].innerHTML,
+                                             stakesWon:   tds[7].innerHTML.replace('$','').replaceAll(',','')
+                                            }
+                                        });
+                                }";
+
+                        var trainerRaceRows = await page.EvaluateFunctionAsync<TrainerRaceRow[]>(jsTrainerRank);
+                        result = trainerRaceRows.ToList();
+                        return result;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+                throw;
+            }
+
+            return result;
+        }
+
+        /*
+            5. https://racing.hkjc.com/racing/information/Chinese/Horse/Horse.aspx?HorseId=HK_2021_G232&Option=1
+            呢條係馬匹既，檔中既變數就係馬匹編號，HK_2021_G232
+            HK_2021係隻馬黎港日期，G232係馬匹烙號
+            係排表表馬匹名既超連結入面可以提取到呢個馬匹編號
+
+            https://racing.hkjc.com/racing/information/chinese/Horse/SelectHorsebyChar.aspx?ordertype=2
+            house list, ordertype = 2,3,4
+         */
+        /*
+         * table 1- > tr -> 3rd td: #innerContent > div.commContent > div:nth-child(1) > table.horseProfile > tbody > tr > td:nth-child(2) > table > tr > td[2]
+         * table 2- > tr -> 3rd td: #innerContent > div.commContent > div:nth-child(1) > table.horseProfile > tbody > tr > td:nth-child(3) > table > tr > td[2]
+         * #SameSire > option:nth-child(1) > value (id), innerHTML (name)
+         */
+
+
+        /*
+            6. https://racing.hkjc.com/racing/information/Chinese/Jockey/JockeyPastRec.aspx?JockeyId=BV&Season=Current&PageNum=1
+            呢個係騎師既，當中有變數JockeyId、Curent、PageNum
+            JockeyId同馬匹一樣，可以係排位表個超連結上面提取到
+            最麻煩就係PageNum，1代表第一頁，如果得2頁既話，你輸入3佢都會比繼續比第二頁你，所以我個程式要檢查有無「下一頁」呢個字去判斷有無下一頁。    
+         */
+        public static async Task<Tuple<List<RidingRecord>, bool>> GetRidingRecords(string jockeyID, string seasonType, int pageID = 1)
+        {
+            //https://racing.hkjc.com/racing/information/Chinese/Jockey/JockeyPastRec.aspx?JockeyId=BV&Season=Current&PageNum=1
+            string url = string.Format(@"https://racing.hkjc.com/racing/information/Chinese/Jockey/JockeyPastRec.aspx?JockeyId={0}&Season={1}&PageNum={2}"
+                , jockeyID
+                , seasonType
+                , pageID
+                );
+            var result = new List<RidingRecord>();
+            var isNextPage = false;
+
+            try
+            {
+                var path = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+                var browserFetcher = new BrowserFetcher(new BrowserFetcherOptions
+                {
+                    Path = path + @"\.local -chromium"
+                });
+
+                await browserFetcher.DownloadAsync(BrowserFetcher.DefaultChromiumRevision);
+                using (var browser = await Puppeteer.LaunchAsync(new LaunchOptions()
+                {
+                    Headless = true,
+                    ExecutablePath = browserFetcher.RevisionInfo(BrowserFetcher.DefaultChromiumRevision).ExecutablePath
+                }))
+                {
+                    using (var page = await browser.NewPageAsync())
+                    {
+                        await page.GoToAsync(url);
+                        await page.SetViewportAsync(new ViewPortOptions
+                        {
+                            Width = 1024,
+                            Height = 768
+                        });
+
+                        Thread.Sleep(1000);
+
+                        //#innerContent > div.jockeyPastRec.commContent > div.ridingRec > p.f_clear.f_fs13 > span.f_fr.page_pre_head > a
+                        var jsNextPage = @"()=>{                        
+                        const selector = document.querySelectorAll('#innerContent > div.jockeyPastRec.commContent > div.ridingRec > p.f_clear.f_fs13 > span.f_fr.page_pre_head > a ');
+                        if (selector != null)
+                        {
+                            return selector.innerHTML;
+                        }
+                        return '';
+                        }";
+
+                        var nextPage = await page.EvaluateFunctionAsync<string>(jsNextPage);
+                        if (!string.IsNullOrEmpty(nextPage) && nextPage.Trim() == "下一頁")
+                        {
+                            isNextPage = true;
+                        }
+
                         var jsRidingRecords = @"() => {
                         const selectors = Array.from(document.querySelectorAll('#innerContent > div.jockeyPastRec.commContent > div.ridingRec > table > tbody > tr '));
                         return selectors.map( (tr) => { 
@@ -363,7 +450,7 @@ namespace JCDataExtractor.Services
                                              distance     :tds[3].innerHTML,
                                              raceClass    :tds[4].innerHTML,
                                              going        :tds[5].innerHTML,
-                                             house        :tds[6].innerHTML,
+                                             horse        :tds[6].innerHTML,
                                              draw         :tds[7].innerHTML,
                                              rtg          :tds[8].innerHTML,
                                              trainer      :tds[9].innerHTML,
@@ -385,7 +472,7 @@ namespace JCDataExtractor.Services
                             throw new Exception("No riding records found!");
                         }
                         
-                        return result;
+                        return new Tuple<List<RidingRecord>,bool>(result, isNextPage);
                     }
                 }
             }
@@ -395,12 +482,161 @@ namespace JCDataExtractor.Services
                 throw;
             }
 
-            return result;
+            return new Tuple<List<RidingRecord>, bool>(result, isNextPage);
         }
 
         /*
             7. https://racing.hkjc.com/racing/information/Chinese/Trainers/TrainerPastRec.aspx?TrainerId=SJJ&Season=Current&PageNum=1
             呢個係練馬師既，原理同騎師既一樣
          */
+        public static async Task<Tuple<List<RunnerRecord>,bool>> GetRunnerRecords(string trainerID, string seasonType, int pageID = 1)
+        {
+            //https://racing.hkjc.com/racing/information/Chinese/Trainers/TrainerPastRec.aspx?TrainerId=SJJ&Season=Current&PageNum=1
+            string url = string.Format(@"https://racing.hkjc.com/racing/information/Chinese/Trainers/TrainerPastRec.aspx?TrainerId={0}&Season={1}&PageNum={2}"
+                , trainerID
+                , seasonType
+                , pageID
+                );
+            var result = new List<RunnerRecord>();
+            var isNextPage = false;
+
+            try
+            {
+                var path = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+                var browserFetcher = new BrowserFetcher(new BrowserFetcherOptions
+                {
+                    Path = path + @"\.local -chromium"
+                });
+
+                await browserFetcher.DownloadAsync(BrowserFetcher.DefaultChromiumRevision);
+                using (var browser = await Puppeteer.LaunchAsync(new LaunchOptions()
+                {
+                    Headless = true,
+                    ExecutablePath = browserFetcher.RevisionInfo(BrowserFetcher.DefaultChromiumRevision).ExecutablePath
+                }))
+                {
+                    using (var page = await browser.NewPageAsync())
+                    {
+                        await page.GoToAsync(url);
+                        await page.SetViewportAsync(new ViewPortOptions
+                        {
+                            Width = 1024,
+                            Height = 768
+                        });
+
+                        Thread.Sleep(1000);
+
+                        //Check nextpage -> #innerContent > div.trainerPastRec.commContent > div.runnerRec > p:nth-child(1) > span.f_fr.page_pre_head > a
+                        var jsCheckNextPage = @"() => {
+                        const selector = document.querySelector('#innerContent > div.trainerPastRec.commContent > div.runnerRec > p:nth-child(1) > span.f_fr.page_pre_head > a ');
+                        if (selector != null)
+                        {
+                            return selector.innerHTML;
+                        }                        
+                        return '';
+                        }";
+
+                        var nextPage = await page.EvaluateFunctionAsync<string>(jsCheckNextPage);
+
+                        if (!string.IsNullOrEmpty(nextPage) && nextPage.Trim() == "下一頁")
+                        {
+                            isNextPage = true;
+                        }
+
+                        var jsRunnerRecords = @"() => {
+                        const selectors = Array.from(document.querySelectorAll('#innerContent > div.trainerPastRec.commContent > div.runnerRec > table > tbody > tr '));
+                        return selectors.map( (tr) => { 
+                                    const tds = Array.from(tr.querySelectorAll('td'));
+                                    if (tds.length == 16) {
+                                        return { 
+                                             index        :tds[0].querySelector('a').innerHTML,
+                                             raceURL      :tds[0].querySelector('a').href,
+                                             horse        :tds[1].innerHTML,
+                                             placing      :tds[2].innerHTML,
+                                             trackCourse  :tds[3].innerHTML,
+                                             distance     :tds[4].innerHTML,
+                                             going        :tds[5].innerHTML,
+                                             draw         :tds[6].innerHTML,
+                                             rtg          :tds[7].innerHTML,
+                                             winOdds      :tds[8].innerHTML,                                             
+                                             jockey       :tds[9].innerHTML,
+                                             gear         :tds[10].innerHTML,
+                                             bodyWeight   :tds[11].innerHTML,
+                                             actualWeight :tds[12].innerHTML,
+                                             horseFirst   :tds[13].innerHTML,
+                                             horseSecond  :tds[14].innerHTML,
+                                             horseThird   :tds[15].innerHTML
+                                            }
+                                        }
+                                    });
+                                }";
+
+                        var runnerRecords = await page.EvaluateFunctionAsync<RunnerRecord[]>(jsRunnerRecords);
+                        if (runnerRecords != null && runnerRecords.Length != 0)
+                        {
+                            result = runnerRecords.Where(r => r != null).ToList();
+                        }
+                        else
+                        {
+                            throw new Exception("No runner records found!");
+                        }
+
+                        return new Tuple<List<RunnerRecord>, bool>(result, isNextPage);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+                throw;
+            }
+
+            return new Tuple<List<RunnerRecord>, bool>(result, isNextPage);
+        }
+
+        /// <summary>
+        /// Get the full list of Runner Records with multiple page ID
+        /// </summary>
+        /// <param name="trainerID"></param>
+        /// <param name="seasonType"></param>
+        /// <returns></returns>
+        public static async Task<List<RunnerRecord>> GetFullRunnerRecords(string trainerID, string seasonType)
+        {
+            var result = new List<RunnerRecord>();
+            var pageID = 1;
+            var isNextPage = false;
+
+            do {
+                var tResult = await GetRunnerRecords(trainerID, seasonType, pageID);
+                isNextPage = tResult.Item2;
+                result.AddRange(tResult.Item1);
+                pageID++;
+            } while (isNextPage);
+
+            return result;
+        }
+
+        /// <summary>
+        /// Get the full list of Runner Records with multiple page ID
+        /// </summary>
+        /// <param name="jockeyID"></param>
+        /// <param name="seasonType"></param>
+        /// <returns></returns>
+        public static async Task<List<RidingRecord>> GetFullRidingRecords(string jockeyID, string seasonType)
+        {
+            var result = new List<RidingRecord>();
+            var pageID = 1;
+            var isNextPage = false;
+
+            do
+            {
+                var tResult = await GetRidingRecords(jockeyID, seasonType, pageID);
+                isNextPage = tResult.Item2;
+                result.AddRange(tResult.Item1);
+                pageID++;
+            } while (isNextPage);
+
+            return result;
+        }
     }
 }

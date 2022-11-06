@@ -1,12 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection.Metadata;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace JCDataExtractor.Models
 {
-    public class RidingRecord
+    public class RunnerRecord
     {        
         /// <summary>
         /// 場次
@@ -29,6 +30,7 @@ namespace JCDataExtractor.Models
         /// <summary>
         /// 名次
         /// </summary>
+        /// 
         public string placing { get; set; }
         /// <summary>
         /// 跑道/賽道
@@ -59,9 +61,13 @@ namespace JCDataExtractor.Models
         /// </summary>
         public int rtg { get; set; }
         /// <summary>
-        /// 練馬師
+        /// 賠率
         /// </summary>
-        public string trainer { get; set; }
+        public double winOdds { get; set; }
+        /// <summary>
+        /// 騎師
+        /// </summary>
+        public string jockey { get; set; }
         /// <summary>
         /// 配備
         /// </summary>
@@ -75,6 +81,9 @@ namespace JCDataExtractor.Models
         /// </summary>
         public int actualWeight { get; set; }
 
+        public string horseFirst { get; set; }
+        public string horseSecond { get; set; }
+        public string horseThird { get; set; }
         public RaceInfo GetRaceInfo()
         { 
             return new RaceInfo(this.raceURL);

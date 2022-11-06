@@ -1,11 +1,5 @@
-﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
-using JCDataExtractor.Services;
-using JCDataExtractor.Models;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using JCDataExtractor.Models;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Polly;
 
 namespace JCDataExtractor.Services.Tests
@@ -40,7 +34,7 @@ namespace JCDataExtractor.Services.Tests
 
             var results = await polly.ExecuteAsync(async () => await WebDataService.GetRidingRecords("PZ", "Current"));
 
-            Assert.AreEqual(true, (results.Count != 0 ? true : false));
+            Assert.AreEqual(true, (results.Item1.Count != 0 ? true : false));
         }
 
         [TestMethod()]
@@ -77,17 +71,11 @@ namespace JCDataExtractor.Services.Tests
                 jockey.name = jRank.jockeyName;
 
                 var fullRidingRecords = new List<RidingRecord>();
-                var pageCount = 1;
 
                 //Check if jockey has ride before
                 if (jRank.totalRide != 0) {
-                    do
-                    {
-                        var ridingResults = await polly.ExecuteAsync(async () => await WebDataService.GetRidingRecords(jRank.jockeyId, seasonType, pageCount));
-                        fullRidingRecords.AddRange(ridingResults);
-                        pageCount++;
-                    }
-                    while (fullRidingRecords.OrderBy(r => r.index).FirstOrDefault().index > 1);
+                    var ridingResults = await polly.ExecuteAsync(async () => await WebDataService.GetFullRidingRecords(jRank.jockeyId, seasonType));
+                    fullRidingRecords.AddRange(ridingResults);
                 }
 
                 //Map ranking to yearly race stats
@@ -109,6 +97,84 @@ namespace JCDataExtractor.Services.Tests
             }
 
             Assert.AreEqual(true, JockeyList.Count != 0 ? true : false);
+        }
+
+        [TestMethod()]
+        public async Task GetRunnerRecordsTest()
+        {
+            var polly = Policy
+            .Handle<Exception>()
+            .RetryAsync(3, (exception, retryCount, context) => Console.WriteLine($"try: {retryCount}, Exception: {exception.Message}"));
+
+            var results = await polly.ExecuteAsync(async () => await WebDataService.GetRunnerRecords("CAS", "Current"));
+
+            Assert.AreEqual(true, (results.Item1.Count != 0 ? true : false));
+        }
+
+        [TestMethod()]
+        public async Task GetTrainerRankingTableTest()
+        {
+            var seasonType = "Current";
+            var polly = Policy
+           .Handle<Exception>()
+           .RetryAsync(3, (exception, retryCount, context) => Console.WriteLine($"try: {retryCount}, Exception: {exception.Message}"));
+
+            var results = await polly.ExecuteAsync(async () => await WebDataService.GetTrainerRankingTable(seasonType));
+
+            Assert.AreEqual(true, results.Count != 0 ? true : false);
+        }
+
+        [TestMethod()]
+        public async Task GetMultipleTrainerTest()
+        {
+            var seasonType = "Current";
+            var trainerList = new List<Trainer>();
+
+            var polly = Policy
+           .Handle<Exception>()
+           .RetryAsync(3, (exception, retryCount, context) => Console.WriteLine($"try: {retryCount}, Exception: {exception.Message}"));
+
+            var trainerRanks = await polly.ExecuteAsync(async () => await WebDataService.GetTrainerRankingTable(seasonType));
+
+            if (trainerRanks != null && trainerRanks.Count >= 3)
+            {
+                //foreach (var jRank in jockeyRanks)
+                for (int i = 0; i < 3; i++) //test only top 3 here
+                {
+                    var tRank = trainerRanks[i];
+                    var trainer = new Trainer();
+                    trainer.id = tRank.trainerId;
+                    trainer.name = tRank.trainerName;
+
+                    var fullRunnerRecords = new List<RunnerRecord>();
+
+                    //Check if jockey has ride before
+                    if (tRank.totalRun != 0)
+                    {
+                        var ridingResults = await polly.ExecuteAsync(async () => await WebDataService.GetFullRunnerRecords(tRank.trainerId, seasonType));
+                        fullRunnerRecords.AddRange(ridingResults);
+                    }
+
+                    //Map ranking to yearly race stats
+                    var tStats = new TrainerRaceStats();
+                    tStats.year = (seasonType == "Current" ? DateTime.Now.Year : DateTime.Now.Year - 1);
+                    tStats.count1st = tRank.count1st;
+                    tStats.count2nd = tRank.count2nd;
+                    tStats.count3rd = tRank.count3rd;
+                    tStats.count4th = tRank.count4th;
+                    tStats.count5th = tRank.count5th;
+                    tStats.totalRun = tRank.totalRun;
+                    tStats.stakesWon = tRank.stakesWon;
+
+                    trainer.TrainerRaceStatsList = new List<TrainerRaceStats>();
+                    trainer.TrainerRaceStatsList.Add(tStats);
+                    trainer.RunnerRecords = fullRunnerRecords;
+
+                    trainerList.Add(trainer);
+                }
+            }            
+
+            Assert.AreEqual(true, trainerList.Count != 0 ? true : false);
         }
     }
 }
