@@ -367,9 +367,183 @@ namespace JCDataExtractor.Services
             呢條係馬匹既，檔中既變數就係馬匹編號，HK_2021_G232
             HK_2021係隻馬黎港日期，G232係馬匹烙號
             係排表表馬匹名既超連結入面可以提取到呢個馬匹編號
-
-
          */
+        public static async Task<Tuple<Horse, bool>> GetHorseRecord(string horseID)
+        {
+            //https://racing.hkjc.com/racing/information/Chinese/Horse/Horse.aspx?HorseId=HK_2021_G232&Option=1
+            string url = string.Format(@"https://racing.hkjc.com/racing/information/Chinese/Horse/Horse.aspx?HorseId={0}&Option=1"
+                , horseID
+                );
+            var result = new Horse();
+            var isNextPage = false;
+
+            try
+            {
+                var path = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+                var browserFetcher = new BrowserFetcher(new BrowserFetcherOptions
+                {
+                    Path = path + @"\.local -chromium"
+                });
+
+                await browserFetcher.DownloadAsync(BrowserFetcher.DefaultChromiumRevision);
+                using (var browser = await Puppeteer.LaunchAsync(new LaunchOptions()
+                {
+                    Headless = true,
+                    ExecutablePath = browserFetcher.RevisionInfo(BrowserFetcher.DefaultChromiumRevision).ExecutablePath
+                }))
+                {
+                    using (var page = await browser.NewPageAsync())
+                    {
+                        await page.GoToAsync(url);
+                        await page.SetViewportAsync(new ViewPortOptions
+                        {
+                            Width = 1024,
+                            Height = 768
+                        });
+
+                        Thread.Sleep(1000);
+                        /*
+                         *  Left
+                            1出生地 / 馬齡	:	英國 / 4
+                            2毛色 / 性別	:	棗 / 閹
+                            3進口類別	:	自購馬
+                            4今季獎金*	:	$28,350
+                            5總獎金*	:	$83,300
+                            6冠-亞-季-總出賽次數*	:	0-0-0-14
+                            7最近十個賽馬日
+                            出賽場數	:	1
+                            8現在位置
+                            (到達日期)	:	從化
+                            (08/11/2022)
+                            
+                            Right
+                            9練馬師	:	蔡約翰
+                            10馬主	:	郭少明
+                            11現時評分	:	38
+                            12季初評分	:	40
+                            13父系	:	Territories
+                            14母系	:	Folly Bridge
+                            15外祖父	:	Avonbridge
+                            16同父系馬	: 紅運泰斗
+ 
+                         */
+                        //Left column
+                        //#innerContent > div.commContent > div:nth-child(1) > table.horseProfile > tbody > tr > td:nth-child(2) > table > tbody > tr:nth-child(1) > td:nth-child(3)
+                        //#innerContent > div.commContent > div:nth-child(1) > table.horseProfile > tbody > tr > td:nth-child(2) > table > tbody > tr:nth-child(2) > td:nth-child(3)
+                        //#innerContent > div.commContent > div:nth-child(1) > table.horseProfile > tbody > tr > td:nth-child(2) > table > tbody > tr:nth-child(8) > td:nth-child(3)
+
+                        //Right column (a: 1,2,5)
+                        //#innerContent > div.commContent > div:nth-child(1) > table.horseProfile > tbody > tr > td:nth-child(3) > table > tbody > tr:nth-child(1) > td:nth-child(3) > a
+                        //#innerContent > div.commContent > div:nth-child(1) > table.horseProfile > tbody > tr > td:nth-child(3) > table > tbody > tr:nth-child(7) > td:nth-child(3)
+                        //#SameSire > option:nth-child(2)
+
+                        var jsCols = @"()=>{                        
+                        var selectors = Array.from(document.querySelectorAll('#innerContent > div.commContent > div:nth-child(1) > table.horseProfile > tbody > tr > td:nth-child(2) > table > tbody > tr'));
+                        var arr = [];
+                        
+                        //Left
+                        for (j=0; j<selectors.length; j++)
+                        {
+                            var row = selectors[j];
+                            var target = row.querySelector('td:nth-of-type(3)');
+                            arr.push(target);
+                        };
+
+                        //Right
+                        selectors = Array.from(document.querySelectorAll('#innerContent > div.commContent > div:nth-child(1) > table.horseProfile > tbody > tr > td:nth-child(3) > table > tbody > tr'));
+                        for (i=0; i<selectors.length; i++)
+                        {
+                            var row = selectors[i];
+                            var target = row.querySelector('td:nth-of-type(3)');
+                            arr.push(target);
+                        };
+
+                        if (arr != null && arr.length)
+                        {
+                            var pArr = arr[5].innerHTML.split('-');
+                            var options = Array.from(document.querySelectorAll('#SameSire > option'));
+                            var sameSireArr = options.map( (option) => { return option.innerHTML });
+                            return {
+                                countryOrigin : arr[0].innerHTML.split('/')[0].trim(),   
+                                age           : arr[0].innerHTML.split('/')[1].trim(),      
+                                colour        : arr[1].innerHTML.split('/')[0].trim(),     
+                                sex	          : arr[1].innerHTML.split('/')[1].trim(),
+                                importType	  : arr[2].innerHTML,        
+                                seasonStakes  : arr[3].innerHTML.replace('$','').replace(',',''),           
+                                totalStakes   : arr[4].innerHTML.replace('$','').replace(',',''),           
+                                countFirstThreeAndStarts : [pArr[0], pArr[1], pArr[2], pArr[3]],
+                                countStartsInPast10Races : arr[6].innerHTML, 
+                                currentStableLocation    : arr[7].innerHTML.split('(')[0].trim(),
+                                arrivalDate              : arr[7].innerHTML.split('(')[1].replace(')','').trim(),
+                                trainer                  : arr[8].querySelector('a').innerHTML,
+                                owner                    : arr[9].querySelector('a').innerHTML,
+                                currentRating	         : arr[10].innerHTML, 
+                                startofSeasonRating	     : arr[11].innerHTML,
+                                sire                     : arr[12].querySelector('a').innerHTML,
+                                dam	                     : arr[13].innerHTML,   
+                                damSire	                 : arr[14].innerHTML,
+                                sameSire                 : sameSireArr
+                                };
+                        };
+                        return null;
+                        }";
+
+                        var horseInfo = await page.EvaluateFunctionAsync<HorseInfo>(jsCols);
+                        result.info = horseInfo;
+
+                        /*場次,名次,日期,馬場/跑道/賽道,途程,場地狀況,賽事班次,檔位,評分,練馬師,騎師,頭馬距離,獨贏賠率,實際負磅,沿途走位,完成時間,排位體重,配備*/
+                        //#innerContent > div.commContent > div:nth-child(1) > table.bigborder > tbody > tr:nth-child(3)
+                        //#innerContent > div.commContent > div:nth-child(1) > table.bigborder > tbody > tr:nth-child(3) > td:nth-child(1) > a
+                        //#innerContent > div.commContent > div:nth-child(1) > table.bigborder > tbody > tr:nth-child(3) > td:nth-child(2)
+                        //#innerContent > div.commContent > div:nth-child(1) > table.bigborder > tbody > tr:nth-child(3) > td:nth-child(18)
+                        //#innerContent > div.commContent > div:nth-child(1) > table.bigborder > tbody > tr:nth-child(3) > td:nth-child(15) > span
+                        var jsHorseFormRecords = @"() => {
+                        const selectors = Array.from(document.querySelectorAll('#innerContent > div.commContent > div:nth-child(1) > table.bigborder > tbody > tr'));
+                        return selectors.map( (tr) => { 
+                                    const tds = Array.from(tr.querySelectorAll('td'));
+                                    if (tds.length == 19) {
+                                        return { 
+                                             index        :tds[0].querySelector('a').innerHTML,
+                                             raceURL      :tds[0].querySelector('a').href,
+                                             placing      :tds[1].querySelector('span').innerHTML,
+                                             raceDate     :tds[2].innerHTML,
+                                             trackCourse  :tds[3].innerHTML,
+                                             distance     :tds[4].innerHTML,           
+                                             going        :tds[5].innerHTML,
+                                             raceClass    :tds[6].innerHTML,
+                                             draw         :tds[7].innerHTML,
+                                             rtg          :tds[8].innerHTML,
+                                             trainer      :tds[9].querySelector('a').innerHTML,
+                                             jockey       :tds[10].querySelector('a').innerHTML,
+                                             LBW          :tds[11].querySelector('span').innerHTML,
+                                             winOdds      :tds[12].innerHTML,
+                                             actualWeight :tds[13].innerHTML,
+                                             runningPosition:tds[14].querySelector('span').innerHTML,
+                                             finishTime   :tds[15].innerHTML,
+                                             bodyWeight   :tds[16].innerHTML,
+                                             gear         :tds[17].innerHTML,
+                                            }
+                                        }
+                                    });
+                                }";
+
+                        var horseFromRecords = await page.EvaluateFunctionAsync<HorseFormRecord[]>(jsHorseFormRecords);
+                        if (horseFromRecords != null && horseFromRecords.Length != 0)
+                        {
+                            result.horseFormRecords = horseFromRecords.Where(r => r != null).ToList();
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+                throw;
+            }
+
+            return new Tuple<Horse, bool>(result, isNextPage);
+        }
+
         /*
          * table 1- > tr -> 3rd td: #innerContent > div.commContent > div:nth-child(1) > table.horseProfile > tbody > tr > td:nth-child(2) > table > tr > td[2]
          * table 2- > tr -> 3rd td: #innerContent > div.commContent > div:nth-child(1) > table.horseProfile > tbody > tr > td:nth-child(3) > table > tr > td[2]
@@ -472,7 +646,7 @@ namespace JCDataExtractor.Services
             最麻煩就係PageNum，1代表第一頁，如果得2頁既話，你輸入3佢都會比繼續比第二頁你，所以我個程式要檢查有無「下一頁」呢個字去判斷有無下一頁。    
         */
             public static async Task<Tuple<List<RidingRecord>, bool>> GetRidingRecords(string jockeyID, string seasonType, int pageID = 1)
-        {
+            {
             //https://racing.hkjc.com/racing/information/Chinese/Jockey/JockeyPastRec.aspx?JockeyId=BV&Season=Current&PageNum=1
             string url = string.Format(@"https://racing.hkjc.com/racing/information/Chinese/Jockey/JockeyPastRec.aspx?JockeyId={0}&Season={1}&PageNum={2}"
                 , jockeyID

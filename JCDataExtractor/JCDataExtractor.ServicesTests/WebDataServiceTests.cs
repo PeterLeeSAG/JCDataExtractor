@@ -195,5 +195,18 @@ namespace JCDataExtractor.Services.Tests
 
             Assert.AreEqual(true, results.Count != 0 ? true : false);
         }
+
+        [TestMethod()]
+        public async Task GetHorseRecordTest()
+        {
+            var horseID = "HK_2021_G232";
+            var polly = Policy
+               .Handle<Exception>()
+               .RetryAsync(3, (exception, retryCount, context) => Console.WriteLine($"try: {retryCount}, Exception: {exception.Message}"));
+
+            var result = await polly.ExecuteAsync(async () => await WebDataService.GetHorseRecord(horseID));
+
+            Assert.AreEqual(true, result != null ? true : false);
+        }
     }
 }
