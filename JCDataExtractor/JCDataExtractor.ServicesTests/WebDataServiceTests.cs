@@ -1,4 +1,5 @@
-﻿using JCDataExtractor.Models;
+﻿using JCDataExtractor.Services;
+using JCDataExtractor.Models;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Polly;
 
@@ -21,13 +22,17 @@ namespace JCDataExtractor.Services.Tests
         [TestMethod()]
         public async Task GetDrawStatsListTest()
         {
-            var results = await WebDataService.GetDrawStatsList();
+            var polly = Policy
+              .Handle<Exception>()
+              .RetryAsync(3, (exception, retryCount, context) => Console.WriteLine($"try: {retryCount}, Exception: {exception.Message}"));
+
+            var results = await polly.ExecuteAsync(async () => await WebDataService.GetDrawStatsList());
             Assert.AreEqual(true, (results.Count != 0 ? true : false));
         }
 
         [TestMethod()]
         public async Task GetRidingRecordsTest()
-        {            
+        {
             var polly = Policy
             .Handle<Exception>()
             .RetryAsync(3, (exception, retryCount, context) => Console.WriteLine($"try: {retryCount}, Exception: {exception.Message}"));
@@ -63,7 +68,7 @@ namespace JCDataExtractor.Services.Tests
             var jockeyRanks = await polly.ExecuteAsync(async () => await WebDataService.GetJockeyRankingTable(seasonType));
 
             //foreach (var jRank in jockeyRanks)
-            for(int i = 0; i < 3; i++) //test only top 3 here
+            for (int i = 0; i < 3; i++) //test only top 3 here
             {
                 var jRank = jockeyRanks[i];
                 var jockey = new Jockey();
@@ -73,7 +78,8 @@ namespace JCDataExtractor.Services.Tests
                 var fullRidingRecords = new List<RidingRecord>();
 
                 //Check if jockey has ride before
-                if (jRank.totalRide != 0) {
+                if (jRank.totalRide != 0)
+                {
                     var ridingResults = await polly.ExecuteAsync(async () => await WebDataService.GetFullRidingRecords(jRank.jockeyId, seasonType));
                     fullRidingRecords.AddRange(ridingResults);
                 }
@@ -172,9 +178,22 @@ namespace JCDataExtractor.Services.Tests
 
                     trainerList.Add(trainer);
                 }
-            }            
+            }
 
             Assert.AreEqual(true, trainerList.Count != 0 ? true : false);
+        }
+
+        [TestMethod()]
+        public async Task GetHorseIDNameListTest()
+        {
+            var wordCount = 2;
+            var polly = Policy
+               .Handle<Exception>()
+               .RetryAsync(3, (exception, retryCount, context) => Console.WriteLine($"try: {retryCount}, Exception: {exception.Message}"));
+
+            var results = await polly.ExecuteAsync(async () => await WebDataService.GetHorseIDNameList(wordCount));
+
+            Assert.AreEqual(true, results.Count != 0 ? true : false);
         }
     }
 }

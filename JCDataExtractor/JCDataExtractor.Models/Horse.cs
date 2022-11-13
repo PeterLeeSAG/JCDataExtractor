@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 namespace JCDataExtractor.Models
-{    
+{
     public class Horse
     {
         /*
@@ -52,5 +52,11 @@ namespace JCDataExtractor.Models
         public string name { get; set; }
         public List<JockeyRaceStats> JockeyRaceStatsList { get; set; }
         public List<HorseFormRecord> horseFormRecords { get; set; }
+    }
+
+    public class HorseList
+    {
+        public string horseName { get; set; }
+        public string horseID { get; set; }
     }
 }

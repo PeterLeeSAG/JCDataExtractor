@@ -368,8 +368,7 @@ namespace JCDataExtractor.Services
             HK_2021係隻馬黎港日期，G232係馬匹烙號
             係排表表馬匹名既超連結入面可以提取到呢個馬匹編號
 
-            https://racing.hkjc.com/racing/information/chinese/Horse/SelectHorsebyChar.aspx?ordertype=2
-            horse list, ordertype = 2,3,4
+
          */
         /*
          * table 1- > tr -> 3rd td: #innerContent > div.commContent > div:nth-child(1) > table.horseProfile > tbody > tr > td:nth-child(2) > table > tr > td[2]
@@ -377,14 +376,102 @@ namespace JCDataExtractor.Services
          * #SameSire > option:nth-child(1) > value (id), innerHTML (name)
          */
 
+        /*
+            https://racing.hkjc.com/racing/information/chinese/Horse/SelectHorsebyChar.aspx?ordertype=2
+            horse list, ordertype = 2,3,4
+         */
+        public static async Task<List<Horse>> GetHorseIDNameList(int chineseCount = 2)
+        {
+            List<Horse> horses = new List<Horse>();
+            string url = string.Format(@"https://racing.hkjc.com/racing/information/chinese/Horse/SelectHorsebyChar.aspx?ordertype={0}"
+                , chineseCount
+                );
+
+            try
+            {
+                var path = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+                var browserFetcher = new BrowserFetcher(new BrowserFetcherOptions
+                {
+                    Path = path + @"\.local -chromium"
+                });
+
+                await browserFetcher.DownloadAsync(BrowserFetcher.DefaultChromiumRevision);
+                using (var browser = await Puppeteer.LaunchAsync(new LaunchOptions()
+                {
+                    Headless = true,
+                    ExecutablePath = browserFetcher.RevisionInfo(BrowserFetcher.DefaultChromiumRevision).ExecutablePath
+                }))
+                {
+                    using (var page = await browser.NewPageAsync())
+                    {
+                        await page.GoToAsync(url);
+                        await page.SetViewportAsync(new ViewPortOptions
+                        {
+                            Width = 1024,
+                            Height = 768
+                        });
+
+                        Thread.Sleep(1000);
+                        //#innerContent > div.commContent > p > table > tbody > tr:nth-child(2) > td > table > tbody > tr:nth-child(24) > td:nth-child(5) > table > tbody > tr > td.table_text_two > li > a
+                        //#innerContent > div.commContent > p > table > tbody > tr:nth-child(2) > td > table > tbody > tr:nth-child(1) > td:nth-child(1) > table > tbody > tr > td.table_text_two > li > a
+
+                        var jsHorseRecords = @"() => {
+                            var arr = [];
+                            const selectors = Array.from(document.querySelectorAll('#innerContent > div.commContent > p > table > tbody > tr:nth-child(2) > td > table > tbody > tr '));
+                            for (j=0; j<selectors.length; j++)
+                            {
+                                var row = selectors[j];
+                                var tds = Array.from(row.querySelectorAll('td'));
+                                for (k=0; k<tds.length; k++)
+                                {
+                                    if (tds[k] != null && tds[k].querySelector('table > tbody > tr > td.table_text_two > li') != null)
+                                    {
+                                        var item = tds[k].querySelector('table > tbody > tr > td.table_text_two > li');
+                                        arr.push( { 
+                                                    horseName    :item.querySelector('a').innerHTML,
+                                                    horseID      :item.querySelector('a').href.split('=')[1],
+                                                    });
+                                    }                                    
+                                }
+                            };
+                            return arr;
+                        }";
+
+                        var horseRecords = await page.EvaluateFunctionAsync<HorseList[]>(jsHorseRecords);
+                        if (horseRecords != null && horseRecords.Length != 0)
+                        {
+                            var list = horseRecords.Where(r => r != null).ToList();
+                            foreach (var h in list)
+                            {
+                                horses.Add(new Horse { id = h.horseID, name = h.horseName });
+                            }
+                        }
+                        else
+                        {
+                            throw new Exception("No riding records found!");
+                        }
+
+                        return horses;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+                throw;
+            }
+
+            return horses;
+        }
+
 
         /*
             6. https://racing.hkjc.com/racing/information/Chinese/Jockey/JockeyPastRec.aspx?JockeyId=BV&Season=Current&PageNum=1
             呢個係騎師既，當中有變數JockeyId、Curent、PageNum
             JockeyId同馬匹一樣，可以係排位表個超連結上面提取到
             最麻煩就係PageNum，1代表第一頁，如果得2頁既話，你輸入3佢都會比繼續比第二頁你，所以我個程式要檢查有無「下一頁」呢個字去判斷有無下一頁。    
-         */
-        public static async Task<Tuple<List<RidingRecord>, bool>> GetRidingRecords(string jockeyID, string seasonType, int pageID = 1)
+        */
+            public static async Task<Tuple<List<RidingRecord>, bool>> GetRidingRecords(string jockeyID, string seasonType, int pageID = 1)
         {
             //https://racing.hkjc.com/racing/information/Chinese/Jockey/JockeyPastRec.aspx?JockeyId=BV&Season=Current&PageNum=1
             string url = string.Format(@"https://racing.hkjc.com/racing/information/Chinese/Jockey/JockeyPastRec.aspx?JockeyId={0}&Season={1}&PageNum={2}"
