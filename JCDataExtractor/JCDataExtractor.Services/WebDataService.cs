@@ -493,6 +493,7 @@ namespace JCDataExtractor.Services
 
                         /*場次,名次,日期,馬場/跑道/賽道,途程,場地狀況,賽事班次,檔位,評分,練馬師,騎師,頭馬距離,獨贏賠率,實際負磅,沿途走位,完成時間,排位體重,配備*/
                         //#innerContent > div.commContent > div:nth-child(1) > table.bigborder > tbody > tr:nth-child(3)
+                        //#innerContent > div.commContent > div:nth-child(1) > table.bigborder > tbody > tr:nth-child(3) > td:nth-child(1)
                         //#innerContent > div.commContent > div:nth-child(1) > table.bigborder > tbody > tr:nth-child(3) > td:nth-child(1) > a
                         //#innerContent > div.commContent > div:nth-child(1) > table.bigborder > tbody > tr:nth-child(3) > td:nth-child(2)
                         //#innerContent > div.commContent > div:nth-child(1) > table.bigborder > tbody > tr:nth-child(3) > td:nth-child(18)
@@ -501,7 +502,7 @@ namespace JCDataExtractor.Services
                         const selectors = Array.from(document.querySelectorAll('#innerContent > div.commContent > div:nth-child(1) > table.bigborder > tbody > tr'));
                         return selectors.map( (tr) => { 
                                     const tds = Array.from(tr.querySelectorAll('td'));
-                                    if (tds.length == 19) {
+                                    if (tds.length == 19 && tds[4].innerHTML != '途程') {
                                         return { 
                                              index        :tds[0].querySelector('a').innerHTML,
                                              raceURL      :tds[0].querySelector('a').href,
@@ -518,7 +519,7 @@ namespace JCDataExtractor.Services
                                              LBW          :tds[11].querySelector('span').innerHTML,
                                              winOdds      :tds[12].innerHTML,
                                              actualWeight :tds[13].innerHTML,
-                                             runningPosition:tds[14].querySelector('span').innerHTML,
+                                             runningPosition:tds[14].innerHTML,
                                              finishTime   :tds[15].innerHTML,
                                              bodyWeight   :tds[16].innerHTML,
                                              gear         :tds[17].innerHTML,

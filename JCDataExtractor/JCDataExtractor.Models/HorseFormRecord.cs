@@ -25,7 +25,7 @@ namespace JCDataExtractor.Models
         /// <summary>
         /// 日期
         /// </summary>
-        public DateTime raceDate { get; set; }
+        public string raceDate { get; set; }
         
         /// <summary>
         /// 馬場/跑道/賽道
