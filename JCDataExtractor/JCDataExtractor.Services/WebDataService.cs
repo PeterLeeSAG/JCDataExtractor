@@ -367,6 +367,7 @@ namespace JCDataExtractor.Services
             呢條係馬匹既，檔中既變數就係馬匹編號，HK_2021_G232
             HK_2021係隻馬黎港日期，G232係馬匹烙號
             係排表表馬匹名既超連結入面可以提取到呢個馬匹編號
+            TODO: handle HK_2019_D108 special column
          */
         public static async Task<Tuple<Horse, bool>> GetHorseRecord(string horseID)
         {
@@ -375,7 +376,7 @@ namespace JCDataExtractor.Services
                 , horseID
                 );
             var result = new Horse();
-            var isNextPage = false;
+            var isFound = false;
 
             try
             {
@@ -402,40 +403,6 @@ namespace JCDataExtractor.Services
                         });
 
                         Thread.Sleep(1000);
-                        /*
-                         *  Left
-                            1出生地 / 馬齡	:	英國 / 4
-                            2毛色 / 性別	:	棗 / 閹
-                            3進口類別	:	自購馬
-                            4今季獎金*	:	$28,350
-                            5總獎金*	:	$83,300
-                            6冠-亞-季-總出賽次數*	:	0-0-0-14
-                            7最近十個賽馬日
-                            出賽場數	:	1
-                            8現在位置
-                            (到達日期)	:	從化
-                            (08/11/2022)
-                            
-                            Right
-                            9練馬師	:	蔡約翰
-                            10馬主	:	郭少明
-                            11現時評分	:	38
-                            12季初評分	:	40
-                            13父系	:	Territories
-                            14母系	:	Folly Bridge
-                            15外祖父	:	Avonbridge
-                            16同父系馬	: 紅運泰斗
- 
-                         */
-                        //Left column
-                        //#innerContent > div.commContent > div:nth-child(1) > table.horseProfile > tbody > tr > td:nth-child(2) > table > tbody > tr:nth-child(1) > td:nth-child(3)
-                        //#innerContent > div.commContent > div:nth-child(1) > table.horseProfile > tbody > tr > td:nth-child(2) > table > tbody > tr:nth-child(2) > td:nth-child(3)
-                        //#innerContent > div.commContent > div:nth-child(1) > table.horseProfile > tbody > tr > td:nth-child(2) > table > tbody > tr:nth-child(8) > td:nth-child(3)
-
-                        //Right column (a: 1,2,5)
-                        //#innerContent > div.commContent > div:nth-child(1) > table.horseProfile > tbody > tr > td:nth-child(3) > table > tbody > tr:nth-child(1) > td:nth-child(3) > a
-                        //#innerContent > div.commContent > div:nth-child(1) > table.horseProfile > tbody > tr > td:nth-child(3) > table > tbody > tr:nth-child(7) > td:nth-child(3)
-                        //#SameSire > option:nth-child(2)
 
                         var jsCols = @"()=>{                        
                         var selectors = Array.from(document.querySelectorAll('#innerContent > div.commContent > div:nth-child(1) > table.horseProfile > tbody > tr > td:nth-child(2) > table > tbody > tr'));
@@ -462,19 +429,25 @@ namespace JCDataExtractor.Services
                         {
                             var pArr = arr[5].innerHTML.split('-');
                             var options = Array.from(document.querySelectorAll('#SameSire > option'));
-                            var sameSireArr = options.map( (option) => { return option.innerHTML });
+                            var sameSireArr = options.map( (option) => { return {horseID: option.value, horseName: option.innerHTML } });
+                            var arrivalDateStr = arr[7].innerHTML.split('(')[1].replace(')','').trim();
+                            if (arrivalDateStr.length == 10)
+                            {
+                                var dArray = arrivalDateStr.split('/');
+                                arrivalDateStr = dArray[2] + '/' + dArray[1] + '/' + dArray[0];
+                            };
                             return {
                                 countryOrigin : arr[0].innerHTML.split('/')[0].trim(),   
                                 age           : arr[0].innerHTML.split('/')[1].trim(),      
                                 colour        : arr[1].innerHTML.split('/')[0].trim(),     
                                 sex	          : arr[1].innerHTML.split('/')[1].trim(),
                                 importType	  : arr[2].innerHTML,        
-                                seasonStakes  : arr[3].innerHTML.replace('$','').replace(',',''),           
-                                totalStakes   : arr[4].innerHTML.replace('$','').replace(',',''),           
+                                seasonStakes  : arr[3].innerHTML.replace('$','').replaceAll(',',''),           
+                                totalStakes   : arr[4].innerHTML.replace('$','').replaceAll(',',''),           
                                 countFirstThreeAndStarts : [pArr[0], pArr[1], pArr[2], pArr[3]],
                                 countStartsInPast10Races : arr[6].innerHTML, 
                                 currentStableLocation    : arr[7].innerHTML.split('(')[0].trim(),
-                                arrivalDate              : arr[7].innerHTML.split('(')[1].replace(')','').trim(),
+                                arrivalDate              : arrivalDateStr,
                                 trainer                  : arr[8].querySelector('a').innerHTML,
                                 owner                    : arr[9].querySelector('a').innerHTML,
                                 currentRating	         : arr[10].innerHTML, 
@@ -489,15 +462,14 @@ namespace JCDataExtractor.Services
                         }";
 
                         var horseInfo = await page.EvaluateFunctionAsync<HorseInfo>(jsCols);
-                        result.info = horseInfo;
+                        if (horseInfo != null)
+                        {
+                            result.info = horseInfo;
+                            isFound = true;
+                        }                        
 
                         /*場次,名次,日期,馬場/跑道/賽道,途程,場地狀況,賽事班次,檔位,評分,練馬師,騎師,頭馬距離,獨贏賠率,實際負磅,沿途走位,完成時間,排位體重,配備*/
                         //#innerContent > div.commContent > div:nth-child(1) > table.bigborder > tbody > tr:nth-child(3)
-                        //#innerContent > div.commContent > div:nth-child(1) > table.bigborder > tbody > tr:nth-child(3) > td:nth-child(1)
-                        //#innerContent > div.commContent > div:nth-child(1) > table.bigborder > tbody > tr:nth-child(3) > td:nth-child(1) > a
-                        //#innerContent > div.commContent > div:nth-child(1) > table.bigborder > tbody > tr:nth-child(3) > td:nth-child(2)
-                        //#innerContent > div.commContent > div:nth-child(1) > table.bigborder > tbody > tr:nth-child(3) > td:nth-child(18)
-                        //#innerContent > div.commContent > div:nth-child(1) > table.bigborder > tbody > tr:nth-child(3) > td:nth-child(15) > span
                         var jsHorseFormRecords = @"() => {
                         const selectors = Array.from(document.querySelectorAll('#innerContent > div.commContent > div:nth-child(1) > table.bigborder > tbody > tr'));
                         return selectors.map( (tr) => { 
@@ -533,6 +505,29 @@ namespace JCDataExtractor.Services
                         {
                             result.horseFormRecords = horseFromRecords.Where(r => r != null).ToList();
                         }
+
+                        //same sire options
+                        var jsSameSireRecords = @"() => {
+                            var arr = [];
+                            const options = Array.from(document.querySelectorAll('#SameSire > option'));
+                            if (options != null)
+                            {
+                                for (i=0; i<options.length; i++)
+                                {
+                                    arr.push({ 
+                                                horseID        :options[i].value,
+                                                horseName      :options[i].innerHTML,                                           
+                                    });
+                                };
+                                return arr;
+                            };
+                            return null;
+                        }";
+                        var sameSireRecords = await page.EvaluateFunctionAsync<HorseItem[]>(jsSameSireRecords);
+                        if (sameSireRecords != null && sameSireRecords.Length != 0)
+                        {
+                            result.info.sameSire = sameSireRecords.Where(r => r != null).ToList();
+                        }
                     }
                 }
             }
@@ -542,7 +537,7 @@ namespace JCDataExtractor.Services
                 throw;
             }
 
-            return new Tuple<Horse, bool>(result, isNextPage);
+            return new Tuple<Horse, bool>(result, isFound);
         }
 
         /*
@@ -612,7 +607,7 @@ namespace JCDataExtractor.Services
                             return arr;
                         }";
 
-                        var horseRecords = await page.EvaluateFunctionAsync<HorseList[]>(jsHorseRecords);
+                        var horseRecords = await page.EvaluateFunctionAsync<HorseItem[]>(jsHorseRecords);
                         if (horseRecords != null && horseRecords.Length != 0)
                         {
                             var list = horseRecords.Where(r => r != null).ToList();

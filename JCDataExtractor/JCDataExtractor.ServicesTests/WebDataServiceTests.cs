@@ -208,5 +208,33 @@ namespace JCDataExtractor.Services.Tests
 
             Assert.AreEqual(true, result != null ? true : false);
         }
+
+        [TestMethod()]
+        public async Task GetAllHorseRecordsTest()
+        {
+            var horses = new List<Horse>();
+            var polly = Policy
+               .Handle<Exception>()
+               .RetryAsync(3, (exception, retryCount, context) => Console.WriteLine($"try: {retryCount}, Exception: {exception.Message}"));
+
+            int[] wordCounts = { 2, 3, 4 };
+
+            foreach (var wordCount in wordCounts)
+            {
+                var horseList = await polly.ExecuteAsync(async () => await WebDataService.GetHorseIDNameList(wordCount));
+
+                foreach (var horse in horseList)
+                {
+                    Console.WriteLine("Testing: " + horse.id);
+                    var horseResult = await polly.ExecuteAsync(async () => await WebDataService.GetHorseRecord(horse.id));
+                    if (horseResult.Item2)
+                    {
+                        horses.Add(horseResult.Item1);
+                    }
+                }
+            }
+
+            Assert.AreEqual(true, horses != null && horses.Count != 0 ? true : false);
+        }
     }
 }

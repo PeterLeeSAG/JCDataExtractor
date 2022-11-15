@@ -19,7 +19,7 @@ namespace JCDataExtractor.Models
         public List<HorseFormRecord> horseFormRecords { get; set; }
     }
 
-    public class HorseList
+    public class HorseItem
     {
         public string horseName { get; set; }
         public string horseID { get; set; }
@@ -85,7 +85,7 @@ namespace JCDataExtractor.Models
         public string sire                     { get; set; }
         public string dam	                   { get; set; }
         public string damSire	               { get; set; }
-        public List<string> sameSire           { get; set; }
+        public List<HorseItem> sameSire           { get; set; }
     }
 
     public class HorseInfo
@@ -108,6 +108,6 @@ namespace JCDataExtractor.Models
         public string sire { get; set; }
         public string dam { get; set; }
         public string damSire { get; set; }
-        public List<string> sameSire { get; set; }
+        public List<HorseItem> sameSire { get; set; }
     }
 }
