@@ -215,7 +215,7 @@ namespace JCDataExtractor.Services.Tests
             var horses = new List<Horse>();
             var polly = Policy
                .Handle<Exception>()
-               .RetryAsync(3, (exception, retryCount, context) => Console.WriteLine($"try: {retryCount}, Exception: {exception.Message}"));
+               .RetryAsync(5, (exception, retryCount, context) => Console.WriteLine($"try: {retryCount}, Exception: {exception.Message}"));
 
             int[] wordCounts = { 2, 3, 4 };
 

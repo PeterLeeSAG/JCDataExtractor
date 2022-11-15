@@ -412,8 +412,12 @@ namespace JCDataExtractor.Services
                         for (j=0; j<selectors.length; j++)
                         {
                             var row = selectors[j];
-                            var target = row.querySelector('td:nth-of-type(3)');
-                            arr.push(target);
+                            //#innerContent > div.commContent > div:nth-child(1) > table.horseProfile > tbody > tr > td:nth-child(2) > table > tbody > tr:nth-child(8) > td:nth-child(1)
+                            if (row.querySelector('td:nth-of-type(1)').innerHTML != '自購馬來港前賽事片段')
+                            {
+                                var target = row.querySelector('td:nth-of-type(3)');
+                                arr.push(target);
+                            }
                         };
 
                         //Right
@@ -422,7 +426,7 @@ namespace JCDataExtractor.Services
                         {
                             var row = selectors[i];
                             var target = row.querySelector('td:nth-of-type(3)');
-                            arr.push(target);
+                            arr.push(target);                            
                         };
 
                         if (arr != null && arr.length)
