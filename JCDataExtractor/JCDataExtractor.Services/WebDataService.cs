@@ -433,7 +433,11 @@ namespace JCDataExtractor.Services
                         {
                             var pArr = arr[5].innerHTML.split('-');
                             var options = Array.from(document.querySelectorAll('#SameSire > option'));
-                            var sameSireArr = options.map( (option) => { return {horseID: option.value, horseName: option.innerHTML } });
+                            var sameSireArr; 
+                            if (options != null)
+                            {
+                                sameSireArr = options.map( (option) => { return {horseID: option.value, horseName: option.innerHTML } });
+                            };                            
                             var arrivalDateStr = arr[7].innerHTML.split('(')[1].replace(')','').trim();
                             if (arrivalDateStr.length == 10)
                             {
@@ -478,27 +482,27 @@ namespace JCDataExtractor.Services
                         const selectors = Array.from(document.querySelectorAll('#innerContent > div.commContent > div:nth-child(1) > table.bigborder > tbody > tr'));
                         return selectors.map( (tr) => { 
                                     const tds = Array.from(tr.querySelectorAll('td'));
-                                    if (tds.length == 19 && tds[4].innerHTML != '途程') {
+                                    if (tds.length == 19 && tds[4] != null && tds[4].innerHTML != '途程') {
                                         return { 
-                                             index        :tds[0].querySelector('a').innerHTML,
-                                             raceURL      :tds[0].querySelector('a').href,
-                                             placing      :tds[1].querySelector('span').innerHTML,
-                                             raceDate     :tds[2].innerHTML,
-                                             trackCourse  :tds[3].innerHTML,
-                                             distance     :tds[4].innerHTML,           
-                                             going        :tds[5].innerHTML,
-                                             raceClass    :tds[6].innerHTML,
-                                             draw         :tds[7].innerHTML,
-                                             rtg          :tds[8].innerHTML,
-                                             trainer      :tds[9].querySelector('a').innerHTML,
-                                             jockey       :tds[10].querySelector('a').innerHTML,
-                                             LBW          :tds[11].querySelector('span').innerHTML,
-                                             winOdds      :tds[12].innerHTML,
-                                             actualWeight :tds[13].innerHTML,
-                                             runningPosition:tds[14].innerHTML,
-                                             finishTime   :tds[15].innerHTML,
-                                             bodyWeight   :tds[16].innerHTML,
-                                             gear         :tds[17].innerHTML,
+                                             index        :tds[0]?.querySelector('a')?.innerHTML,
+                                             raceURL      :tds[0]?.querySelector('a')?.href,
+                                             placing      :tds[1]?.querySelector('span')?.innerHTML,
+                                             raceDate     :tds[2]?.innerHTML,
+                                             trackCourse  :tds[3]?.innerHTML,
+                                             distance     :tds[4]?.innerHTML,           
+                                             going        :tds[5]?.innerHTML,
+                                             raceClass    :tds[6]?.innerHTML,
+                                             draw         :tds[7]?.innerHTML==='--'?'0':tds[7]?.innerHTML,
+                                             rtg          :tds[8]?.innerHTML==='--'?'0':tds[8]?.innerHTML,
+                                             trainer      :tds[9]?.querySelector('a')?.innerHTML,
+                                             jockey       :tds[10]?.querySelector('a')?.innerHTML,
+                                             LBW          :tds[11]?.querySelector('span')?.innerHTML,
+                                             winOdds      :tds[12]?.innerHTML==='--'?'0':tds[12]?.innerHTML,
+                                             actualWeight :tds[13]?.innerHTML==='--'?'0':tds[13]?.innerHTML,
+                                             runningPosition:tds[14]?.innerHTML,
+                                             finishTime   :tds[15]?.innerHTML,
+                                             bodyWeight   :tds[16]?.innerHTML==='--'?'0':tds[16]?.innerHTML,
+                                             gear         :tds[17]?.innerHTML,
                                             }
                                         }
                                     });
@@ -507,7 +511,7 @@ namespace JCDataExtractor.Services
                         var horseFromRecords = await page.EvaluateFunctionAsync<HorseFormRecord[]>(jsHorseFormRecords);
                         if (horseFromRecords != null && horseFromRecords.Length != 0)
                         {
-                            result.horseFormRecords = horseFromRecords.Where(r => r != null).ToList();
+                            result.horseFormRecords =  horseFromRecords.Where(r => r != null).ToList();
                         }
 
                         //same sire options

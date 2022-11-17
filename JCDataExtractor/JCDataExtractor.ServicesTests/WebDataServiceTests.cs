@@ -199,7 +199,8 @@ namespace JCDataExtractor.Services.Tests
         [TestMethod()]
         public async Task GetHorseRecordTest()
         {
-            var horseID = "HK_2021_G232";
+            //https://racing.hkjc.com/racing/information/Chinese/Horse/Horse.aspx?HorseId=HK_2020_E131&Option=1
+            var horseID = "HK_2019_D056";
             var polly = Policy
                .Handle<Exception>()
                .RetryAsync(3, (exception, retryCount, context) => Console.WriteLine($"try: {retryCount}, Exception: {exception.Message}"));
