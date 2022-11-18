@@ -6,6 +6,7 @@ namespace JCDataExtractor.Services
 {
     public class WebDataService
     {
+        private const int waitSeconds = 2000;
         public WebDataService()
         {
         }
@@ -46,7 +47,7 @@ namespace JCDataExtractor.Services
                             Height = 768
                         });
 
-                        Thread.Sleep(1000);
+                        Thread.Sleep(waitSeconds);
 
                         //map html table data to list of object via js querySelector here
                         var jsRaceCard = @"() => {
@@ -144,7 +145,7 @@ namespace JCDataExtractor.Services
                             Height = 768
                         });
 
-                        Thread.Sleep(1000);
+                        Thread.Sleep(waitSeconds);
 
                         //check how many race on the page                        
                         var jsRaceCount = @"() => {
@@ -158,7 +159,7 @@ namespace JCDataExtractor.Services
                         {
                             for (int i = 1; i <= raceCount; i++)
                             {
-                                Thread.Sleep(500);
+                                Thread.Sleep(waitSeconds);
 
                                 var draw = new DrawStats();
                                 draw.raceNo = i;
@@ -255,7 +256,7 @@ namespace JCDataExtractor.Services
                             Height = 768
                         });
 
-                        Thread.Sleep(1000);
+                        Thread.Sleep(waitSeconds);
 
                         //check how many race on the page                        
                         var jsJockeyRank = @"() => {
@@ -326,7 +327,7 @@ namespace JCDataExtractor.Services
                             Height = 768
                         });
 
-                        Thread.Sleep(1000);
+                        Thread.Sleep(waitSeconds);
 
                         //check how many race on the page                        
                         var jsTrainerRank = @"() => {
@@ -380,6 +381,7 @@ namespace JCDataExtractor.Services
 
             try
             {
+                result.id = horseID;
                 var path = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
                 var browserFetcher = new BrowserFetcher(new BrowserFetcherOptions
                 {
@@ -402,7 +404,23 @@ namespace JCDataExtractor.Services
                             Height = 768
                         });
 
-                        Thread.Sleep(1000);
+                        Thread.Sleep(waitSeconds);
+
+                        //#innerContent > div.commContent > div:nth-child(1) > table.horseProfile > tbody > tr > td:nth-child(1) > table > tbody > tr:nth-child(1) > td > span
+                        var jsHorseName = @"()=>{                        
+                        const selector = document.querySelector('#innerContent > div.commContent > div:nth-child(1) > table.horseProfile > tbody > tr > td:nth-child(1) > table > tbody > tr:nth-child(1) > td > span');
+                        if (selector != null)
+                        {
+                            return selector.innerHTML;
+                        }
+                        return '';
+                        }";
+
+                        var horseName = await page.EvaluateFunctionAsync<string>(jsHorseName);
+                        if (!string.IsNullOrEmpty(horseName))
+                        {
+                            result.name = horseName?.Split('(')?.First();
+                        }
 
                         var jsCols = @"()=>{                        
                         var selectors = Array.from(document.querySelectorAll('#innerContent > div.commContent > div:nth-child(1) > table.horseProfile > tbody > tr > td:nth-child(2) > table > tbody > tr'));
@@ -460,7 +478,7 @@ namespace JCDataExtractor.Services
                                 owner                    : arr[9].querySelector('a').innerHTML,
                                 currentRating	         : arr[10].innerHTML, 
                                 startofSeasonRating	     : arr[11].innerHTML,
-                                sire                     : arr[12].querySelector('a').innerHTML,
+                                sire                     : arr[12].querySelector('a')?.innerHTML.split('\n')[1].trim(),
                                 dam	                     : arr[13].innerHTML,   
                                 damSire	                 : arr[14].innerHTML,
                                 sameSire                 : sameSireArr
@@ -474,7 +492,11 @@ namespace JCDataExtractor.Services
                         {
                             result.info = horseInfo;
                             isFound = true;
-                        }                        
+                        }
+                        else
+                        {
+                            throw new Exception("Failed to find Horse Info...");
+                        }
 
                         /*場次,名次,日期,馬場/跑道/賽道,途程,場地狀況,賽事班次,檔位,評分,練馬師,騎師,頭馬距離,獨贏賠率,實際負磅,沿途走位,完成時間,排位體重,配備*/
                         //#innerContent > div.commContent > div:nth-child(1) > table.bigborder > tbody > tr:nth-child(3)
@@ -514,34 +536,38 @@ namespace JCDataExtractor.Services
                             result.horseFormRecords =  horseFromRecords.Where(r => r != null).ToList();
                         }
 
-                        //same sire options
-                        var jsSameSireRecords = @"() => {
-                            var arr = [];
-                            const options = Array.from(document.querySelectorAll('#SameSire > option'));
-                            if (options != null)
-                            {
-                                for (i=0; i<options.length; i++)
-                                {
-                                    arr.push({ 
-                                                horseID        :options[i].value,
-                                                horseName      :options[i].innerHTML,                                           
-                                    });
-                                };
-                                return arr;
-                            };
-                            return null;
-                        }";
-                        var sameSireRecords = await page.EvaluateFunctionAsync<HorseItem[]>(jsSameSireRecords);
-                        if (sameSireRecords != null && sameSireRecords.Length != 0)
+                        if (1 == 2)
                         {
-                            result.info.sameSire = sameSireRecords.Where(r => r != null).ToList();
-                        }
+                            //same sire options
+                            var jsSameSireRecords = @"() => {
+                                var arr = [];
+                                const options = Array.from(document.querySelectorAll('#SameSire > option'));
+                                if (options != null)
+                                {
+                                    for (i=0; i<options.length; i++)
+                                    {
+                                        arr.push({ 
+                                                    horseID        :options[i].value,
+                                                    horseName      :options[i].innerHTML,                                           
+                                        });
+                                    };
+                                    return arr;
+                                };
+                                return null;
+                            }";
+                            var sameSireRecords = await page.EvaluateFunctionAsync<HorseItem[]>(jsSameSireRecords);
+                            if (sameSireRecords != null && sameSireRecords.Length != 0)
+                            {
+                                result.info.sameSire = sameSireRecords?.Where(r => r != null)?.ToList();
+                            }
+                        }                        
                     }
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex.ToString());
+                //Console.WriteLine(ex.ToString());
+                //TODO: Log error with logger
                 throw;
             }
 
@@ -589,7 +615,7 @@ namespace JCDataExtractor.Services
                             Height = 768
                         });
 
-                        Thread.Sleep(1000);
+                        Thread.Sleep(waitSeconds);
                         //#innerContent > div.commContent > p > table > tbody > tr:nth-child(2) > td > table > tbody > tr:nth-child(24) > td:nth-child(5) > table > tbody > tr > td.table_text_two > li > a
                         //#innerContent > div.commContent > p > table > tbody > tr:nth-child(2) > td > table > tbody > tr:nth-child(1) > td:nth-child(1) > table > tbody > tr > td.table_text_two > li > a
 
@@ -602,7 +628,7 @@ namespace JCDataExtractor.Services
                                 var tds = Array.from(row.querySelectorAll('td'));
                                 for (k=0; k<tds.length; k++)
                                 {
-                                    if (tds[k] != null && tds[k].querySelector('table > tbody > tr > td.table_text_two > li') != null)
+                                    if (k%2 == 0 && tds[k] != null && tds[k].querySelector('table > tbody > tr > td.table_text_two > li') != null)
                                     {
                                         var item = tds[k].querySelector('table > tbody > tr > td.table_text_two > li');
                                         arr.push( { 
@@ -684,7 +710,7 @@ namespace JCDataExtractor.Services
                             Height = 768
                         });
 
-                        Thread.Sleep(1000);
+                        Thread.Sleep(waitSeconds);
 
                         //#innerContent > div.jockeyPastRec.commContent > div.ridingRec > p.f_clear.f_fs13 > span.f_fr.page_pre_head > a
                         var jsNextPage = @"()=>{                        
@@ -789,7 +815,7 @@ namespace JCDataExtractor.Services
                             Height = 768
                         });
 
-                        Thread.Sleep(1000);
+                        Thread.Sleep(waitSeconds);
 
                         //Check nextpage -> #innerContent > div.trainerPastRec.commContent > div.runnerRec > p:nth-child(1) > span.f_fr.page_pre_head > a
                         var jsCheckNextPage = @"() => {

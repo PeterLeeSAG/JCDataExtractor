@@ -2,6 +2,8 @@
 using JCDataExtractor.Models;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Polly;
+using Newtonsoft.Json;
+using System.Net.Sockets;
 
 namespace JCDataExtractor.Services.Tests
 {
@@ -13,9 +15,11 @@ namespace JCDataExtractor.Services.Tests
         {
             var polly = Policy
               .Handle<Exception>()
-              .RetryAsync(3, (exception, retryCount, context) => Console.WriteLine($"try: {retryCount}, Exception: {exception.Message}"));
+              .RetryAsync(5, (exception, retryCount, context) => Console.WriteLine($"try: {retryCount}, Exception: {exception.Message}"));
 
-            var results = await polly.ExecuteAsync(async () => await WebDataService.GetRaceCardEntries(DateTime.Parse("2022/11/06"), "st", 1));
+            var results = await polly.ExecuteAsync(async () => await WebDataService.GetRaceCardEntries(DateTime.Parse("2022/11/20"), "st", 1));
+            //SHOW json here:
+            Console.WriteLine(String.Format("DATA: {0}", JsonConvert.SerializeObject(results)));
             Assert.AreEqual(true, (results.Count != 0 ? true : false));
         }
 
@@ -24,9 +28,11 @@ namespace JCDataExtractor.Services.Tests
         {
             var polly = Policy
               .Handle<Exception>()
-              .RetryAsync(3, (exception, retryCount, context) => Console.WriteLine($"try: {retryCount}, Exception: {exception.Message}"));
+              .RetryAsync(5, (exception, retryCount, context) => Console.WriteLine($"try: {retryCount}, Exception: {exception.Message}"));
 
             var results = await polly.ExecuteAsync(async () => await WebDataService.GetDrawStatsList());
+            //SHOW json here:
+            Console.WriteLine(String.Format("DATA: {0}", JsonConvert.SerializeObject(results)));
             Assert.AreEqual(true, (results.Count != 0 ? true : false));
         }
 
@@ -35,10 +41,11 @@ namespace JCDataExtractor.Services.Tests
         {
             var polly = Policy
             .Handle<Exception>()
-            .RetryAsync(3, (exception, retryCount, context) => Console.WriteLine($"try: {retryCount}, Exception: {exception.Message}"));
+            .RetryAsync(5, (exception, retryCount, context) => Console.WriteLine($"try: {retryCount}, Exception: {exception.Message}"));
 
             var results = await polly.ExecuteAsync(async () => await WebDataService.GetRidingRecords("PZ", "Current"));
-
+            //SHOW json here:
+            Console.WriteLine(String.Format("DATA: {0}", JsonConvert.SerializeObject(results)));
             Assert.AreEqual(true, (results.Item1.Count != 0 ? true : false));
         }
 
@@ -48,10 +55,11 @@ namespace JCDataExtractor.Services.Tests
             var seasonType = "Current";
             var polly = Policy
            .Handle<Exception>()
-           .RetryAsync(3, (exception, retryCount, context) => Console.WriteLine($"try: {retryCount}, Exception: {exception.Message}"));
+           .RetryAsync(5, (exception, retryCount, context) => Console.WriteLine($"try: {retryCount}, Exception: {exception.Message}"));
 
             var results = await polly.ExecuteAsync(async () => await WebDataService.GetJockeyRankingTable(seasonType));
-
+            //SHOW json here:
+            Console.WriteLine(String.Format("DATA: {0}", JsonConvert.SerializeObject(results)));
             Assert.AreEqual(true, results.Count != 0 ? true : false);
         }
 
@@ -63,12 +71,12 @@ namespace JCDataExtractor.Services.Tests
 
             var polly = Policy
            .Handle<Exception>()
-           .RetryAsync(3, (exception, retryCount, context) => Console.WriteLine($"try: {retryCount}, Exception: {exception.Message}"));
+           .RetryAsync(5, (exception, retryCount, context) => Console.WriteLine($"try: {retryCount}, Exception: {exception.Message}"));
 
             var jockeyRanks = await polly.ExecuteAsync(async () => await WebDataService.GetJockeyRankingTable(seasonType));
 
             //foreach (var jRank in jockeyRanks)
-            for (int i = 0; i < 3; i++) //test only top 3 here
+            for (int i = 0; i < 10; i++) //test only top 10 here
             {
                 var jRank = jockeyRanks[i];
                 var jockey = new Jockey();
@@ -100,6 +108,8 @@ namespace JCDataExtractor.Services.Tests
                 jockey.RidingRecords = fullRidingRecords;
 
                 JockeyList.Add(jockey);
+                //SHOW json here:
+                Console.WriteLine(String.Format("DATA: {0}", JsonConvert.SerializeObject(jockey)));
             }
 
             Assert.AreEqual(true, JockeyList.Count != 0 ? true : false);
@@ -110,10 +120,11 @@ namespace JCDataExtractor.Services.Tests
         {
             var polly = Policy
             .Handle<Exception>()
-            .RetryAsync(3, (exception, retryCount, context) => Console.WriteLine($"try: {retryCount}, Exception: {exception.Message}"));
+            .RetryAsync(5, (exception, retryCount, context) => Console.WriteLine($"try: {retryCount}, Exception: {exception.Message}"));
 
             var results = await polly.ExecuteAsync(async () => await WebDataService.GetRunnerRecords("CAS", "Current"));
-
+            //SHOW json here:
+            Console.WriteLine(String.Format("DATA: {0}", JsonConvert.SerializeObject(results)));
             Assert.AreEqual(true, (results.Item1.Count != 0 ? true : false));
         }
 
@@ -123,10 +134,11 @@ namespace JCDataExtractor.Services.Tests
             var seasonType = "Current";
             var polly = Policy
            .Handle<Exception>()
-           .RetryAsync(3, (exception, retryCount, context) => Console.WriteLine($"try: {retryCount}, Exception: {exception.Message}"));
+           .RetryAsync(5, (exception, retryCount, context) => Console.WriteLine($"try: {retryCount}, Exception: {exception.Message}"));
 
             var results = await polly.ExecuteAsync(async () => await WebDataService.GetTrainerRankingTable(seasonType));
-
+            //SHOW json here:
+            Console.WriteLine(String.Format("DATA: {0}", JsonConvert.SerializeObject(results)));
             Assert.AreEqual(true, results.Count != 0 ? true : false);
         }
 
@@ -138,14 +150,14 @@ namespace JCDataExtractor.Services.Tests
 
             var polly = Policy
            .Handle<Exception>()
-           .RetryAsync(3, (exception, retryCount, context) => Console.WriteLine($"try: {retryCount}, Exception: {exception.Message}"));
+           .RetryAsync(5, (exception, retryCount, context) => Console.WriteLine($"try: {retryCount}, Exception: {exception.Message}"));
 
             var trainerRanks = await polly.ExecuteAsync(async () => await WebDataService.GetTrainerRankingTable(seasonType));
 
             if (trainerRanks != null && trainerRanks.Count >= 3)
             {
                 //foreach (var jRank in jockeyRanks)
-                for (int i = 0; i < 3; i++) //test only top 3 here
+                for (int i = 0; i < 10; i++) //test only top 10 here
                 {
                     var tRank = trainerRanks[i];
                     var trainer = new Trainer();
@@ -177,6 +189,8 @@ namespace JCDataExtractor.Services.Tests
                     trainer.RunnerRecords = fullRunnerRecords;
 
                     trainerList.Add(trainer);
+                    //SHOW json here:
+                    Console.WriteLine(String.Format("DATA: {0}", JsonConvert.SerializeObject(trainer)));
                 }
             }
 
@@ -189,10 +203,11 @@ namespace JCDataExtractor.Services.Tests
             var wordCount = 2;
             var polly = Policy
                .Handle<Exception>()
-               .RetryAsync(3, (exception, retryCount, context) => Console.WriteLine($"try: {retryCount}, Exception: {exception.Message}"));
+               .RetryAsync(5, (exception, retryCount, context) => Console.WriteLine($"try: {retryCount}, Exception: {exception.Message}"));
 
             var results = await polly.ExecuteAsync(async () => await WebDataService.GetHorseIDNameList(wordCount));
-
+            //SHOW json here:
+            Console.WriteLine(String.Format("DATA: {0}", JsonConvert.SerializeObject(results)));
             Assert.AreEqual(true, results.Count != 0 ? true : false);
         }
 
@@ -200,18 +215,19 @@ namespace JCDataExtractor.Services.Tests
         public async Task GetHorseRecordTest()
         {
             //https://racing.hkjc.com/racing/information/Chinese/Horse/Horse.aspx?HorseId=HK_2020_E131&Option=1
-            var horseID = "HK_2019_D056";
+            var horseID = "HK_2020_E269";
             var polly = Policy
                .Handle<Exception>()
-               .RetryAsync(3, (exception, retryCount, context) => Console.WriteLine($"try: {retryCount}, Exception: {exception.Message}"));
+               .RetryAsync(5, (exception, retryCount, context) => Console.WriteLine($"try: {retryCount}, Exception: {exception.Message}"));
 
             var result = await polly.ExecuteAsync(async () => await WebDataService.GetHorseRecord(horseID));
-
+            //SHOW json here:
+            Console.WriteLine(String.Format("DATA: {0}", JsonConvert.SerializeObject(result)));
             Assert.AreEqual(true, result != null ? true : false);
         }
 
         [TestMethod()]
-        public async Task GetAllHorseRecordsTest()
+        public async Task GetMultipleHorseRecordsTest()
         {
             var horses = new List<Horse>();
             var polly = Policy
@@ -223,15 +239,28 @@ namespace JCDataExtractor.Services.Tests
             foreach (var wordCount in wordCounts)
             {
                 var horseList = await polly.ExecuteAsync(async () => await WebDataService.GetHorseIDNameList(wordCount));
+                var count = 0;
 
                 foreach (var horse in horseList)
                 {
+                    if (count >= 10)
+                    {
+                        break;
+                    }
+
                     Console.WriteLine("Testing: " + horse.id);
                     var horseResult = await polly.ExecuteAsync(async () => await WebDataService.GetHorseRecord(horse.id));
                     if (horseResult.Item2)
                     {
-                        horses.Add(horseResult.Item1);
+                        var horseData = horseResult.Item1;
+                        horseData.name = horse.name;
+                        horseData.id = horse.id;
+
+                        horses.Add(horseData);
+                        //SHOW json here:
+                        Console.WriteLine(String.Format("DATA: {0}", JsonConvert.SerializeObject(horseResult.Item1)));
                     }
+                    count++;
                 }
             }
 
