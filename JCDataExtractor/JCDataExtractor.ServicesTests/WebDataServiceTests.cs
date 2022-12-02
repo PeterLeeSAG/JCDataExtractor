@@ -60,6 +60,12 @@ namespace JCDataExtractor.Services.Tests
             var results = await polly.ExecuteAsync(async () => await WebDataService.GetJockeyRankingTable(seasonType));
             //SHOW json here:
             Console.WriteLine(String.Format("DATA: {0}", JsonConvert.SerializeObject(results)));
+
+            seasonType = "Previous";
+            results = await polly.ExecuteAsync(async () => await WebDataService.GetJockeyRankingTable(seasonType));
+            //SHOW json here:
+            Console.WriteLine(String.Format("DATA: {0}", JsonConvert.SerializeObject(results)));
+
             Assert.AreEqual(true, results.Count != 0 ? true : false);
         }
 

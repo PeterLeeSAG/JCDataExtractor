@@ -89,4 +89,16 @@ namespace JCDataExtractor.Models
             return new RaceInfo(this.raceURL);
         }
     }
+
+    public class RunnerRecordExt : RunnerRecord
+    { 
+        public Jockey jockey { get; set; }
+        public Horse horse { get; set; }
+
+        public RunnerRecordExt()
+        {
+            jockey = new Jockey();
+            horse = new Horse();
+        }
+    }
 }
