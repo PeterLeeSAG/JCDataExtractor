@@ -17,7 +17,7 @@ namespace JCDataExtractor.Services.Tests
               .Handle<Exception>()
               .RetryAsync(5, (exception, retryCount, context) => Console.WriteLine($"try: {retryCount}, Exception: {exception.Message}"));
 
-            var results = await polly.ExecuteAsync(async () => await WebDataService.GetRaceCardEntries(DateTime.Parse("2022/11/20"), "st", 1));
+            var results = await polly.ExecuteAsync(async () => await WebDataService.GetRaceCardEntries(DateTime.Parse("2023/03/11"), "st", 1)); //The date sb changed for available date
             //SHOW json here:
             Console.WriteLine(String.Format("DATA: {0}", JsonConvert.SerializeObject(results)));
             Assert.AreEqual(true, (results.Count != 0 ? true : false));
@@ -221,7 +221,7 @@ namespace JCDataExtractor.Services.Tests
         public async Task GetHorseRecordTest()
         {
             //https://racing.hkjc.com/racing/information/Chinese/Horse/Horse.aspx?HorseId=HK_2020_E131&Option=1
-            var horseID = "HK_2020_E269";
+            var horseID = "HK_2020_E131"; //"TODO: HK_2020_E131" is retired, need to update handling js
             var polly = Policy
                .Handle<Exception>()
                .RetryAsync(5, (exception, retryCount, context) => Console.WriteLine($"try: {retryCount}, Exception: {exception.Message}"));

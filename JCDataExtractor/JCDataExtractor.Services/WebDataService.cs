@@ -148,6 +148,7 @@ namespace JCDataExtractor.Services
                         Thread.Sleep(waitSeconds);
 
                         //check how many race on the page                        
+                        //#innerContent > div.Draw.commContent > div.racingNum.top_races.js_racecard_rt_num > table > tbody > tr > td //@2023/03/11
                         var jsRaceCount = @"() => {
                         const selectors = Array.from(document.querySelectorAll('#innerContent > div.Draw.commContent > div.racingNum.top_races.js_racecard_rt_num > table > tbody > tr > td '));
                         return selectors.length;}";
@@ -258,7 +259,7 @@ namespace JCDataExtractor.Services
 
                         Thread.Sleep(waitSeconds);
 
-                        //check how many race on the page                        
+                        //check how many race on the page
                         var jsJockeyRank = @"() => {
                         const selectors = Array.from(document.querySelectorAll('#innerContent > div.commContent > div.Ranking > div:nth-child(3) > table > tbody:nth-child(2) > tr '));
                         return selectors.map( (tr) => { 
@@ -415,74 +416,130 @@ namespace JCDataExtractor.Services
                         }
                         return '';
                         }";
+                        var isRetired = false;
 
                         var horseName = await page.EvaluateFunctionAsync<string>(jsHorseName);
                         if (!string.IsNullOrEmpty(horseName))
                         {
+                            isRetired = horseName.IndexOf("已退役") != -1 ? true : false;
                             result.name = horseName?.Split('(')?.First();
                         }
 
                         var jsCols = @"()=>{                        
                         var selectors = Array.from(document.querySelectorAll('#innerContent > div.commContent > div:nth-child(1) > table.horseProfile > tbody > tr > td:nth-child(2) > table > tbody > tr'));
                         var arr = [];
-                        
+                        var nameArr = [];
+                        var isRetired = " + (isRetired?"true":"false") + @";
                         //Left
+                        //#innerContent > div.commContent > div:nth-child(1) > table.horseProfile > tbody > tr > td:nth-child(2)
                         for (j=0; j<selectors.length; j++)
                         {
                             var row = selectors[j];
                             //#innerContent > div.commContent > div:nth-child(1) > table.horseProfile > tbody > tr > td:nth-child(2) > table > tbody > tr:nth-child(8) > td:nth-child(1)
+                            //#innerContent > div.commContent > div:nth-child(1) > table.horseProfile > tbody > tr > td:nth-child(2) > table > tbody > tr:nth-child(1) //@2023/03/11
                             if (row.querySelector('td:nth-of-type(1)').innerHTML != '自購馬來港前賽事片段')
                             {
                                 var target = row.querySelector('td:nth-of-type(3)');
                                 arr.push(target);
+                                nameArr.push(row.querySelector('td:nth-of-type(1)'));
                             }
                         };
 
                         //Right
+                        //#innerContent > div.commContent > div:nth-child(1) > table.horseProfile > tbody > tr > td:nth-child(3) //@2023/03/11
                         selectors = Array.from(document.querySelectorAll('#innerContent > div.commContent > div:nth-child(1) > table.horseProfile > tbody > tr > td:nth-child(3) > table > tbody > tr'));
                         for (i=0; i<selectors.length; i++)
                         {
                             var row = selectors[i];
                             var target = row.querySelector('td:nth-of-type(3)');
                             arr.push(target);                            
+                            nameArr.push(row.querySelector('td:nth-of-type(1)'));
                         };
 
                         if (arr != null && arr.length)
                         {
-                            var pArr = arr[5].innerHTML.split('-');
+                            //Check the name array first
+                            var pArr = [];
+                            if (nameArr[5].innerHTML.charAt(0) == '冠')
+                            {
+                                pArr = arr[5].innerHTML.split('-');
+                            }
+                            else if (nameArr[4].innerHTML.charAt(0) == '冠')
+                            {
+                                pArr = arr[4].innerHTML.split('-');
+                            }
+
                             var options = Array.from(document.querySelectorAll('#SameSire > option'));
                             var sameSireArr; 
                             if (options != null)
                             {
                                 sameSireArr = options.map( (option) => { return {horseID: option.value, horseName: option.innerHTML } });
-                            };                            
-                            var arrivalDateStr = arr[7].innerHTML.split('(')[1].replace(')','').trim();
-                            if (arrivalDateStr.length == 10)
-                            {
-                                var dArray = arrivalDateStr.split('/');
-                                arrivalDateStr = dArray[2] + '/' + dArray[1] + '/' + dArray[0];
-                            };
-                            return {
-                                countryOrigin : arr[0].innerHTML.split('/')[0].trim(),   
-                                age           : arr[0].innerHTML.split('/')[1].trim(),      
-                                colour        : arr[1].innerHTML.split('/')[0].trim(),     
-                                sex	          : arr[1].innerHTML.split('/')[1].trim(),
-                                importType	  : arr[2].innerHTML,        
-                                seasonStakes  : arr[3].innerHTML.replace('$','').replaceAll(',',''),           
-                                totalStakes   : arr[4].innerHTML.replace('$','').replaceAll(',',''),           
-                                countFirstThreeAndStarts : [pArr[0], pArr[1], pArr[2], pArr[3]],
-                                countStartsInPast10Races : arr[6].innerHTML, 
-                                currentStableLocation    : arr[7].innerHTML.split('(')[0].trim(),
-                                arrivalDate              : arrivalDateStr,
-                                trainer                  : arr[8].querySelector('a').innerHTML,
-                                owner                    : arr[9].querySelector('a').innerHTML,
-                                currentRating	         : arr[10].innerHTML, 
-                                startofSeasonRating	     : arr[11].innerHTML,
-                                sire                     : arr[12].querySelector('a')?.innerHTML.split('\n')[1].trim(),
-                                dam	                     : arr[13].innerHTML,   
-                                damSire	                 : arr[14].innerHTML,
-                                sameSire                 : sameSireArr
+                            };  
+
+                            if (isRetired){
+                                //Retire
+                                return {
+                                    countryOrigin : arr[0].innerHTML,   
+                                    age           : 0,
+                                    colour        : arr[1].innerHTML.split('/')[0].trim(),     
+                                    sex	          : arr[1].innerHTML.split('/')[arr[1].innerHTML.split('/').length-1].trim(),
+                                    importType	  : arr[2].innerHTML,        
+                                    seasonStakes  : 0,           
+                                    totalStakes   : arr[3].innerHTML.replace('$','').replaceAll(',',''),           
+                                    countFirstThreeAndStarts : [pArr[0], pArr[1], pArr[2], pArr[3]],
+                                    countStartsInPast10Races : 0, 
+                                    currentStableLocation    : '',
+                                    arrivalDate              : '1900/01/01',
+                                    trainer                  : '',
+                                    owner                    : arr[5].querySelector('a').innerHTML,
+                                    currentRating	         : arr[6].innerHTML, 
+                                    startofSeasonRating	     : 0,
+                                    sire                     : arr[7].querySelector('a')?.innerHTML.split('\n')[1].trim(),
+                                    dam	                     : arr[8].innerHTML,   
+                                    damSire	                 : arr[9].innerHTML,
+                                    sameSire                 : sameSireArr
                                 };
+                            }
+                            else
+                            {
+                                //Normal                          
+                                var arrivalDateStr = arr[7].innerHTML.split('(')[1].replace(')','').trim();
+                                var importDateStr  = arr[8].innerHTML.trim();
+                                if (arrivalDateStr.length == 10)
+                                {
+                                    var dArray = arrivalDateStr.split('/');
+                                    arrivalDateStr = dArray[2] + '/' + dArray[1] + '/' + dArray[0];
+                                };
+
+                                if (importDateStr.length == 10)
+                                {
+                                    var dArray = importDateStr.split('/');
+                                    importDateStr = dArray[2] + '/' + dArray[1] + '/' + dArray[0];
+                                }
+
+                                return {
+                                    countryOrigin : arr[0].innerHTML.split('/')[0].trim(),   
+                                    age           : arr[0].innerHTML.split('/')[1].trim(),      
+                                    colour        : arr[1].innerHTML.split('/')[0].trim(),     
+                                    sex	          : arr[1].innerHTML.split('/')[1].trim(),
+                                    importType	  : arr[2].innerHTML,        
+                                    seasonStakes  : arr[3].innerHTML.replace('$','').replaceAll(',',''),           
+                                    totalStakes   : arr[4].innerHTML.replace('$','').replaceAll(',',''),           
+                                    countFirstThreeAndStarts : [pArr[0], pArr[1], pArr[2], pArr[3]],
+                                    countStartsInPast10Races : arr[6].innerHTML, 
+                                    currentStableLocation    : arr[7].innerHTML.split('(')[0].trim(),
+                                    arrivalDate              : arrivalDateStr,
+                                    importDate               : importDateStr,
+                                    trainer                  : arr[9].querySelector('a').innerHTML,
+                                    owner                    : arr[10].querySelector('a').innerHTML,
+                                    currentRating	         : arr[11].innerHTML, 
+                                    startofSeasonRating	     : arr[12].innerHTML,
+                                    sire                     : arr[13].querySelector('a')?.innerHTML.split('\n')[1].trim(),
+                                    dam	                     : arr[14].innerHTML,   
+                                    damSire	                 : arr[15].innerHTML,
+                                    sameSire                 : sameSireArr
+                                };
+                            }                            
                         };
                         return null;
                         }";
@@ -514,16 +571,16 @@ namespace JCDataExtractor.Services
                                              distance     :tds[4]?.innerHTML,           
                                              going        :tds[5]?.innerHTML,
                                              raceClass    :tds[6]?.innerHTML,
-                                             draw         :tds[7]?.innerHTML==='--'?'0':tds[7]?.innerHTML,
-                                             rtg          :tds[8]?.innerHTML==='--'?'0':tds[8]?.innerHTML,
+                                             draw         :tds[7]?.innerHTML.trim()==='--'?'0':tds[7]?.innerHTML,
+                                             rtg          :tds[8]?.innerHTML.trim()==='--'?'0':tds[8]?.innerHTML,
                                              trainer      :tds[9]?.querySelector('a')?.innerHTML,
                                              jockey       :tds[10]?.querySelector('a')?.innerHTML,
                                              LBW          :tds[11]?.querySelector('span')?.innerHTML,
-                                             winOdds      :tds[12]?.innerHTML==='--'?'0':tds[12]?.innerHTML,
-                                             actualWeight :tds[13]?.innerHTML==='--'?'0':tds[13]?.innerHTML,
+                                             winOdds      :tds[12]?.innerHTML.trim()==='--'?'0':tds[12]?.innerHTML,
+                                             actualWeight :tds[13]?.innerHTML.trim()==='--'?'0':tds[13]?.innerHTML,
                                              runningPosition:tds[14]?.innerHTML,
                                              finishTime   :tds[15]?.innerHTML,
-                                             bodyWeight   :tds[16]?.innerHTML==='--'?'0':tds[16]?.innerHTML,
+                                             bodyWeight   :tds[16]?.innerHTML.trim()==='--'?'0':tds[16]?.innerHTML,
                                              gear         :tds[17]?.innerHTML,
                                             }
                                         }
@@ -618,19 +675,19 @@ namespace JCDataExtractor.Services
                         Thread.Sleep(waitSeconds);
                         //#innerContent > div.commContent > p > table > tbody > tr:nth-child(2) > td > table > tbody > tr:nth-child(24) > td:nth-child(5) > table > tbody > tr > td.table_text_two > li > a
                         //#innerContent > div.commContent > p > table > tbody > tr:nth-child(2) > td > table > tbody > tr:nth-child(1) > td:nth-child(1) > table > tbody > tr > td.table_text_two > li > a
-
+                        //#innerContent > div.commContent > table:nth-child(6) > tbody > tr:nth-child(2) > td > table > tbody > tr:nth-child(1) > td:nth-child(2) > table > tbody > tr > td.table_text_two > ul > li > a //Updated @ 2023/03/11
                         var jsHorseRecords = @"() => {
                             var arr = [];
-                            const selectors = Array.from(document.querySelectorAll('#innerContent > div.commContent > p > table > tbody > tr:nth-child(2) > td > table > tbody > tr '));
+                            const selectors = Array.from(document.querySelectorAll('#innerContent > div.commContent > table:nth-child(6) > tbody > tr:nth-child(2) > td > table > tbody > tr '));
                             for (j=0; j<selectors.length; j++)
                             {
                                 var row = selectors[j];
                                 var tds = Array.from(row.querySelectorAll('td'));
                                 for (k=0; k<tds.length; k++)
                                 {
-                                    if (k%2 == 0 && tds[k] != null && tds[k].querySelector('table > tbody > tr > td.table_text_two > li') != null)
+                                    if (k%2 == 0 && tds[k] != null && tds[k].querySelector('table > tbody > tr > td.table_text_two > ul > li') != null)
                                     {
-                                        var item = tds[k].querySelector('table > tbody > tr > td.table_text_two > li');
+                                        var item = tds[k].querySelector('table > tbody > tr > td.table_text_two > ul > li');
                                         arr.push( { 
                                                     horseName    :item.querySelector('a').innerHTML,
                                                     horseID      :item.querySelector('a').href.split('=')[1],

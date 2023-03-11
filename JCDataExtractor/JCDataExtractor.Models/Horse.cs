@@ -101,6 +101,7 @@ namespace JCDataExtractor.Models
         public int countStartsInPast10Races { get; set; }
         public string currentStableLocation { get; set; }
         public DateTime arrivalDate { get; set; }
+        public DateTime importDate { get; set; }
         public string trainer { get; set; }
         public string owner { get; set; }
         public int currentRating { get; set; }
