@@ -12,6 +12,7 @@
     <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
     <PackageReference Include="Polly" Version="7.2.3" />
     <PackageReference Include="PuppeteerSharp" Version="8.0.0" />
+    <PackageReference Include="Selenium.WebDriver" Version="4.23.0" />
   </ItemGroup>
 
   <ItemGroup>

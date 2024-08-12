@@ -1,5 +1,8 @@
 ﻿using JCDataExtractor.Models;
+using OpenQA.Selenium;
+using OpenQA.Selenium.Chrome;
 using PuppeteerSharp;
+using System.Diagnostics;
 using System.Reflection;
 
 namespace JCDataExtractor.Services
@@ -985,6 +988,61 @@ namespace JCDataExtractor.Services
             } while (isNextPage);
 
             return result;
+        }
+
+        public static async Task<List<string>> GetRunnerRecordsByRace(string url)
+        {
+            //https://bet.hkjc.com/ch/racing/wpq/2024-08-11/S1/3
+            // Initialize ChromeDriver
+            using (IWebDriver driver = new ChromeDriver())
+            {
+                // Set the window size
+                driver.Manage().Window.Size = new System.Drawing.Size(1920, 1080);
+                // Navigate to the page containing the odds table
+                driver.Navigate().GoToUrl(url);
+
+                // Wait for the page to load (consider using WebDriverWait for better handling)
+                await Task.Delay(2000); // Simple sleep; better to use WebDriverWait
+
+                // List to store horse ratios
+                List<string> horseRatios = new List<string>();
+
+                // Fetch ratios using IDs
+                for (int i = 1; i <= 14; i++)
+                {
+                    for (int j = 2; j <= 14; j++)
+                    {
+                        if (j <= i) continue; // Skip pairs like 1_1, 2_2, etc.
+
+                        string id = $"qb_QIN_{i}_{j}"; // Construct the ID
+                        try
+                        {
+                            var element = driver.FindElement(By.Id(id));
+                            if (element.Text == "")
+                            {
+                                var temp = driver.FindElements(By.XPath($"//*[@id=\"{id}\"]"));
+                                if (temp.Count > 0)
+                                {
+                                    element = temp[0];
+                                }
+                            }
+                            horseRatios.Add($"{i}_{j}: {element.Text}");
+                        }
+                        catch (NoSuchElementException)
+                        {
+                            Trace.WriteLine($"Element with ID {id} not found.");
+                        }
+                    }
+                }
+
+                // Print the horse ratios
+                foreach (var ratio in horseRatios)
+                {
+                    Trace.WriteLine(ratio);
+                }
+
+                return horseRatios;
+            }
         }
     }
 }

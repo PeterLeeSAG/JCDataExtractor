@@ -11,6 +11,19 @@ namespace JCDataExtractor.Services.Tests
     public class WebDataServiceTests
     {
         [TestMethod()]
+        public async Task GetRaceCardTest()
+        {
+            var polly = Policy
+              .Handle<Exception>()
+              .RetryAsync(5, (exception, retryCount, context) => Console.WriteLine($"try: {retryCount}, Exception: {exception.Message}"));
+
+            var results = await polly.ExecuteAsync(async () => await WebDataService.GetRunnerRecordsByRace("https://bet.hkjc.com/ch/racing/wpq/2024-08-11/S1/3")); //The date sb changed for available date
+            //SHOW json here:
+            //Console.WriteLine(String.Format("DATA: {0}", JsonConvert.SerializeObject(results)));
+            Assert.AreEqual(true, (results.Count != 0 ? true : false));
+        }
+
+        [TestMethod()]
         public async Task GetRaceCardEntriesTest()
         {
             var polly = Policy
